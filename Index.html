@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoTracker Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS y JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 340px;
+            border-radius: 1rem;
+            z-index: 0;
+        }
+        /* Fix z-index de controles Leaflet para que no tape la UI */
+        .leaflet-top, .leaflet-bottom { z-index: 10; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <div class="max-w-md mx-auto p-4 md:max-w-2xl lg:max-w-4xl">
+        <!-- Header -->
+        <header class="flex justify-between items-center py-6 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+                <i data-lucide="map-pin" class="text-emerald-400 w-8 h-8"></i>
+                <h1 class="text-2xl font-bold tracking-tight">GeoTracker<span class="text-emerald-400">.io</span></h1>
+            </div>
+            <span id="db-status" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Conectando DB...
+            </span>
+        </header>
+
+        <main class="mt-8 space-y-6">
+
+            <!-- Control Panel -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-4 text-slate-300">Control de Rastreo</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button id="btn-toggle" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/10">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        <span>Iniciar Rastreo</span>
+                    </button>
+                    <button id="btn-clear" class="border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <span>Limpiar Historial</span>
+                    </button>
+                </div>
+
+                <!-- Estado Actual -->
+                <div id="current-status" class="mt-6 p-4 bg-slate-900/60 rounded-xl border border-slate-800/80 hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Última posición capturada</p>
+                            <p id="geo-coords" class="text-sm font-mono mt-1 text-emerald-400">Buscando satélites...</p>
+                        </div>
+                        <span class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded" id="geo-time">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mapa -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-3 text-slate-300 flex items-center gap-2">
+                    <i data-lucide="map" class="w-5 h-5 text-slate-400"></i>
+                    Mapa de Ruta
+                </h2>
+                <div id="map"></div>
+            </div>
+
+            <!-- Listado de Lugares -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-slate-400"></i>
+                        Lugares de Hoy
+                    </h2>
+                    <span id="log-count" class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md text-xs font-semibold">0 registros</span>
+                </div>
+
+                <div id="logs-container" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                    <div id="empty-state" class="text-center py-12 border border-dashed border-slate-800 rounded-2xl">
+                        <i data-lucide="map" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
+                        <p class="text-slate-400 font-medium">No hay ubicaciones registradas hoy</p>
+                        <p class="text-xs text-slate-600 mt-1">Activa el rastreo para empezar a guardar tu ruta</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DB & ESTADO ---
+        let db = null;
+        let watchId = null;
+        let map = null;
+        let polyline = null;
+        let markers = [];
+        let routeCoords = [];
+
+        const DB_NAME = "GeoTrackerDB";
+        const STORE_NAME = "locations";
+
+        lucide.createIcons();
+
+        // --- INICIAR MAPA ---
+        function initMap() {
+            map = L.map('map').setView([40.416775, -3.703790], 13); // Centro en Madrid por defecto
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(map);
+
+            polyline = L.polyline([], {
+                color: '#34d399',
+                weight: 3,
+                opacity: 0.8,
+                dashArray: '6, 4'
+            }).addTo(map);
+        }
+
+        initMap();
+
+        // --- INICIAR DB ---
+        const request = indexedDB.open(DB_NAME, 1);
+
+        request.onerror = () => updateDbStatus("Error DB", "bg-red-500");
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            updateDbStatus("DB Local Lista", "bg-emerald-500");
+            renderLogs();
+        };
+
+        request.onupgradeneeded = (event) => {
+            event.target.result.createObjectStore(STORE_NAME, { keyPath: "timestamp" });
+        };
+
+        // --- CONTROLES ---
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnClear = document.getElementById('btn-clear');
+        const currentStatusDiv = document.getElementById('current-status');
+
+        btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
+
+        btnClear.addEventListener('click', () => {
+            if (confirm("¿Seguro que quieres borrar todos los datos guardados en el dispositivo?")) {
+                clearLogs();
+            }
+        });
+
+        function startTracking() {
+            if (!("geolocation" in navigator)) {
+                alert("Tu dispositivo o navegador no soporta geolocalización.");
+                return;
+            }
+            watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
+                enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+            });
+            btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
+            btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
+            btnToggle.querySelector('span').textContent = "Detener Rastreo";
+            btnToggle.querySelector('i').setAttribute('data-lucide', 'square');
+            currentStatusDiv.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function stopTracking() {
+            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
+            btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
+            btnToggle.querySelector('span').textContent = "Iniciar Rastreo";
+            btnToggle.querySelector('i').setAttribute('data-lucide', 'play');
+            currentStatusDiv.classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // --- GPS ---
+        function handleGeoSuccess(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp;
+            const timeString = new Date(timestamp).toLocaleTimeString();
+
+            document.getElementById('geo-coords').textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
+            document.getElementById('geo-time').textContent = timeString;
+
+            // Centrar mapa en posición actual
+            map.setView([latitude, longitude], 16);
+
+            if (accuracy > 50) return;
+
+            saveToDb({ timestamp, lat: latitude, lon: longitude, accuracy, dateStr: new Date(timestamp).toLocaleDateString(), timeStr: timeString });
+        }
+
+        function handleGeoError(error) {
+            document.getElementById('geo-coords').textContent = `Error: ${error.message}`;
+        }
+
+        // --- DB CRUD ---
+        function saveToDb(entry) {
+            if (!db) return;
+            const tx = db.transaction([STORE_NAME], "readwrite");
+            tx.objectStore(STORE_NAME).put(entry);
+            tx.oncomplete = () => renderLogs();
+        }
+
+        function renderLogs() {
+            if (!db) return;
+            const tx = db.transaction([STORE_NAME], "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.getAll();
+
+            req.onsuccess = () => {
+                const list = req.result.sort((a, b) => b.timestamp - a.timestamp);
+                document.getElementById('log-count').textContent = `${list.length} registros`;
+
+                const container = document.getElementById('logs-container');
+                const emptyState = document.getElementById('empty-state');
+                container.querySelectorAll('.log-item').forEach(el => el.remove());
+
+                if (list.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    updateMap([]);
+                    return;
+                }
+                emptyState.classList.add('hidden');
+                updateMap(list);
+
+                list.forEach((item, index) => {
+                    const mapsUrl = `https://www.google.com/maps?q=${item.lat},${item.lon}`;
+                    const div = document.createElement('div');
+                    div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-slate-800 rounded-lg text-slate-400">
+                                <i data-lucide="navigation" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium font-mono text-slate-200">Lat: ${item.lat.toFixed(5)} / Lon: ${item.lon.toFixed(5)}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Precisión: ±${Math.round(item.accuracy)} metros</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1.5">
+                            <p class="text-sm font-semibold text-slate-400">${item.timeStr}</p>
+                            <p class="text-[10px] text-slate-600 font-medium">${item.dateStr}</p>
+                            <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer"
+                               class="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 bg-emerald-500/5 hover:bg-emerald-500/10 px-2 py-1 rounded-lg transition">
+                                <i data-lucide="external-link" class="w-3 h-3"></i>
+                                Ver en Maps
+                            </a>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+                lucide.createIcons();
+            };
+        }
+
+        // --- ACTUALIZAR MAPA ---
+        function updateMap(list) {
+            // Limpiar marcadores anteriores
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            routeCoords = [];
+
+            if (list.length === 0) {
+                polyline.setLatLngs([]);
+                return;
+            }
+
+            // Orden cronológico para la polilínea
+            const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+
+            sorted.forEach((item, index) => {
+                const latlng = [item.lat, item.lon];
+                routeCoords.push(latlng);
+
+                // Icono personalizado: círculo verde con número
+                const isLast = index === sorted.length - 1;
+                const markerIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="
+                        width: ${isLast ? '18px' : '12px'};
+                        height: ${isLast ? '18px' : '12px'};
+                        background: ${isLast ? '#34d399' : '#6ee7b7'};
+                        border: 2px solid ${isLast ? '#fff' : '#34d399'};
+                        border-radius: 50%;
+                        box-shadow: 0 0 ${isLast ? '8px' : '4px'} ${isLast ? '#34d399aa' : '#34d39955'};
+                        margin: auto;
+                    "></div>`,
+                    iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
+                    iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
+                });
+
+                const marker = L.marker(latlng, { icon: markerIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div style="font-family:monospace; font-size:12px; line-height:1.6">
+                            <strong>${item.timeStr}</strong><br>
+                            Lat: ${item.lat.toFixed(5)}<br>
+                            Lon: ${item.lon.toFixed(5)}<br>
+                            Precisión: ±${Math.round(item.accuracy)}m<br>
+                            <a href="https://www.google.com/maps?q=${item.lat},${item.lon}"
+                               target="_blank" style="color:#34d399">Ver en Google Maps →</a>
+                        </div>
+                    `);
+                markers.push(marker);
+            });
+
+            polyline.setLatLngs(routeCoords);
+
+            // Ajustar vista al conjunto de puntos
+            if (routeCoords.length > 1) {
+                map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+            } else if (routeCoords.length === 1) {
+                map.setView(routeCoords[0], 16);
+            }
+        }
+
+        function clearLogs() {
+            if (!db) return;
+            const tx = db.transaction([STORE_NAME], "readwrite");
+            tx.objectStore(STORE_NAME).clear();
+            tx.oncomplete = () => renderLogs();
+        }
+
+        function updateDbStatus(text, badgeClass) {
+            document.getElementById('db-status').innerHTML =
+                `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
+        }
+    </script>
+</body>
+</html>
