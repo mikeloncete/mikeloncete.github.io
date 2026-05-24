@@ -349,16 +349,20 @@
     // Obtener appId único
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'geotracker-app-v3-1';
 
-    // Leer configuración de la nube (de entorno o de localStorage en GitHub Pages)
-    let firebaseConfig = null;
-    try {
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            firebaseConfig = JSON.parse(__firebase_config);
-        }
-    } catch (e) {
-        console.warn("Entorno sin configuración inyectada.");
-    }
+    // Tu configuración oficial de Firebase por defecto (Inyectada de forma estática)
+    const defaultFirebaseConfig = {
+        apiKey: "AIzaSyCWkU1Nf3mniPrg0N-ozz6gFxXwdzSyPDE",
+        authDomain: "geohistory-f246c.firebaseapp.com",
+        projectId: "geohistory-f246c",
+        storageBucket: "geohistory-f246c.firebasestorage.app",
+        messagingSenderId: "597198735081",
+        appId: "1:597198735081:web:c25da83619b6f17dfa9278",
+        measurementId: "G-ZLPC494BJX"
+    };
 
+    let firebaseConfig = defaultFirebaseConfig;
+
+    // Permitir sobrescribir en caliente desde localStorage si decides cambiar de Base de Datos en el futuro
     const savedConfig = localStorage.getItem("geotracker_cloud_config");
     if (savedConfig) {
         try {
@@ -368,7 +372,7 @@
         }
     }
 
-    // Inicializar Nube si hay configuración
+    // Inicializar Nube si hay configuración activa
     if (firebaseConfig) {
         try {
             appCloud = initializeApp(firebaseConfig);
@@ -709,11 +713,6 @@
             timeStr: timeString,
             userCleared: false
         });
-    }
-
-    function handleGeoError(error) {
-        const coordsEl = document.getElementById('geo-coords');
-        if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
     }
 
     // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
@@ -1263,7 +1262,7 @@
                 input.value = saved;
             }
         } else {
-            input.value = "";
+            input.value = JSON.stringify(defaultFirebaseConfig, null, 2); // Ofrecer tu config por defecto para facilitar restaurarla
         }
     };
 
