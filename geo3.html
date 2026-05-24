@@ -1,0 +1,869 @@
+:GeoTracker Pro v3:index.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoTracker Pro v3</title>
+    <!-- Tailwind CSS (Framework UI) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet Engine & Styles -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .map-container {
+            height: 320px;
+            border-radius: 1rem;
+            z-index: 0;
+        }
+        .leaflet-top, .leaflet-bottom { z-index: 10; }
+        /* Refinamiento estético del Popup de Leaflet adaptado al Dark Mode */
+        .leaflet-popup-content-wrapper {
+            background-color: #1e293b !important; /* slate-800 */
+            color: #f1f5f9 !important; /* slate-100 */
+            border: 1px solid #334155;
+            border-radius: 0.75rem !important;
+        }
+        .leaflet-popup-tip {
+            background-color: #1e293b !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- HEADER GLOBAL -->
+    <div class="max-w-md mx-auto p-4 md:max-w-2xl lg:max-w-4xl">
+        <header class="flex justify-between items-center py-6 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+                <i data-lucide="map-pin" class="text-emerald-400 w-8 h-8"></i>
+                <h1 class="text-2xl font-bold tracking-tight">GeoTracker<span class="text-emerald-400">.io</span><span class="text-xs text-slate-500 font-normal ml-1">v3.0</span></h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="db-status" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Conectando DB...
+                </span>
+                <button id="btn-logout" class="hidden text-xs bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
+                </button>
+            </div>
+        </header>
+
+        <!-- ======================================================= -->
+        <!-- VISTA 1: AUTHENTICATION / LOGIN -->
+        <!-- ======================================================= -->
+        <div id="view-auth" class="mt-12 hidden">
+            <div class="max-w-sm mx-auto bg-slate-800/40 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm shadow-xl">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="user-check" class="text-emerald-400 w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-100">Acceso al Sistema</h2>
+                    <p class="text-xs text-slate-400 mt-1">Introduce tu usuario para rastrear o gestionar</p>
+                </div>
+
+                <form id="form-login" class="space-y-4" onsubmit="event.preventDefault();">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre de Usuario</label>
+                        <input type="text" id="login-username" required placeholder="Ej: Juan, admin, etc..." 
+                            class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <!-- Input de Contraseña (Solo para Admin) -->
+                    <div id="admin-pass-container" class="hidden transition-all duration-300">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Contraseña Administrador</label>
+                        <input type="password" id="login-password" placeholder="Contraseña de admin" 
+                            class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <div id="login-error-msg" class="text-xs text-red-400 hidden flex items-center gap-1">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                        <span>Usuario o contraseña incorrectos.</span>
+                    </div>
+
+                    <button type="submit" id="btn-submit-auth" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/15">
+                        <span>Ingresar</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- VISTA 2: TRACKER DE USUARIO estándar -->
+        <!-- ======================================================= -->
+        <div id="view-tracker" class="mt-8 space-y-6 hidden">
+            <!-- Saludo de usuario -->
+            <div class="flex justify-between items-center bg-slate-800/20 border border-slate-800/40 rounded-xl px-4 py-3">
+                <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
+                    Sesión activa: <strong id="tracker-user-display" class="text-slate-100">---</strong>
+                </span>
+                <span class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Usuario</span>
+            </div>
+
+            <!-- Panel de Control -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-4 text-slate-300">Control de Rastreo</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button id="btn-toggle" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/10">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        <span>Iniciar Rastreo</span>
+                    </button>
+                    <button id="btn-clear" class="border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <span>Limpiar Mi Historial</span>
+                    </button>
+                </div>
+
+                <!-- Estado Actual -->
+                <div id="current-status" class="mt-6 p-4 bg-slate-900/60 rounded-xl border border-slate-800/80 hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Última posición capturada</p>
+                            <p id="geo-coords" class="text-sm font-mono mt-1 text-emerald-400">Buscando satélites...</p>
+                        </div>
+                        <span class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded" id="geo-time">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mapa del Usuario -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-3 text-slate-300 flex items-center gap-2">
+                    <i data-lucide="map" class="w-5 h-5 text-slate-400"></i>
+                    Mi Ruta de Hoy
+                </h2>
+                <div id="map-user" class="map-container"></div>
+            </div>
+
+            <!-- Listado de coordenadas guardadas -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-slate-400"></i>
+                        Mis Registros de Hoy
+                    </h2>
+                    <span id="log-count" class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md text-xs font-semibold">0 registros</span>
+                </div>
+
+                <div id="logs-container" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                    <div id="empty-state" class="text-center py-12 border border-dashed border-slate-800 rounded-2xl">
+                        <i data-lucide="map" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
+                        <p class="text-slate-400 font-medium">No tienes ubicaciones visibles hoy</p>
+                        <p class="text-xs text-slate-600 mt-1">Activa el rastreo para empezar a guardar tu ruta</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- VISTA 3: PANEL DE CONTROL DE ADMINISTRADOR -->
+        <!-- ======================================================= -->
+        <div id="view-admin" class="mt-8 space-y-6 hidden">
+            <!-- Header Admin -->
+            <div class="flex justify-between items-center bg-slate-800/20 border border-emerald-500/20 rounded-xl px-4 py-3">
+                <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <i data-lucide="shield" class="w-4 h-4 text-emerald-400"></i>
+                    Consola de Administración: <strong class="text-emerald-400">Admin</strong>
+                </span>
+                <span class="text-xs text-slate-900 bg-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">SuperAdmin</span>
+            </div>
+
+            <!-- Grid de dos columnas para pantallas grandes -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Columna Izquierda: Listado de Usuarios Registrados -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4"></i> Usuarios en Sistema
+                        </h3>
+                        <div id="admin-user-list" class="space-y-2 max-h-[400px] overflow-y-auto">
+                            <!-- Inyección dinámica de botones de usuario -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna Derecha: Datos y Mapa del Usuario Seleccionado -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Placeholder de Selección -->
+                    <div id="admin-no-selection" class="text-center py-20 border border-dashed border-slate-800 rounded-2xl bg-slate-800/10">
+                        <i data-lucide="user-plus" class="w-12 h-12 text-slate-600 mx-auto mb-3 animate-pulse"></i>
+                        <p class="text-slate-400 font-medium">No se ha seleccionado ningún usuario</p>
+                        <p class="text-xs text-slate-600 mt-1">Selecciona un usuario de la lista de la izquierda para ver su historial absoluto</p>
+                    </div>
+
+                    <!-- Datos del Usuario Seleccionado (Visible solo al seleccionar uno) -->
+                    <div id="admin-user-details" class="space-y-6 hidden">
+                        <!-- Título de Selección -->
+                        <div class="bg-slate-800/30 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+                            <div>
+                                <span class="text-xs font-semibold text-slate-500 uppercase">Viendo Historial de</span>
+                                <h3 id="admin-selected-username" class="text-lg font-bold text-slate-200">NombreUsuario</h3>
+                            </div>
+                            <span id="admin-selected-count" class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full font-semibold">0 Coordenadas</span>
+                        </div>
+
+                        <!-- Mapa del Admin -->
+                        <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+                            <h4 class="text-sm font-semibold mb-3 text-slate-300 flex items-center gap-2">
+                                <i data-lucide="map" class="w-4 h-4 text-emerald-400"></i>
+                                Ruta Histórica Absoluta
+                            </h4>
+                            <div id="map-admin" class="map-container"></div>
+                        </div>
+
+                        <!-- Listado de ubicaciones registradas por el admin -->
+                        <div class="space-y-3">
+                            <h4 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <i data-lucide="table" class="w-4 h-4"></i> Registros de Ubicación (Incluyendo borrados)
+                            </h4>
+                            <div id="admin-selected-logs" class="space-y-3 max-h-[40vh] overflow-y-auto">
+                                <!-- Coordenadas inyectadas dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // --- DB & CONFIGURACIONES ---
+    let db = null;
+    let watchId = null;
+    let userMap = null;
+    let adminMap = null;
+    let userPolyline = null;
+    let adminPolyline = null;
+    let userMarkers = [];
+    let adminMarkers = [];
+    let isFirstPointOfSession = true;
+
+    const DB_NAME = "GeoTrackerDB_v3";
+    const STORE_LOCATIONS = "locations";
+    const STORE_USERS = "users";
+
+    let currentUser = localStorage.getItem("geotracker_username") || null;
+
+    // Inicializar Iconos de UI
+    lucide.createIcons();
+
+    // --- INICIALIZACIÓN DE LA DB LOCAL (IndexedDB) ---
+    const dbRequest = indexedDB.open(DB_NAME, 2);
+
+    dbRequest.onerror = () => updateDbStatus("Error de DB", "bg-red-500");
+
+    dbRequest.onsuccess = (event) => {
+        db = event.target.result;
+        updateDbStatus("Base Datos Lista", "bg-emerald-500");
+        checkSession();
+    };
+
+    dbRequest.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        
+        // Almacén de Usuarios
+        if (!database.objectStoreNames.contains(STORE_USERS)) {
+            database.createObjectStore(STORE_USERS, { keyPath: "username" });
+        }
+        
+        // Almacén de Ubicaciones con índice por username para consultas rápidas
+        if (!database.objectStoreNames.contains(STORE_LOCATIONS)) {
+            const locStore = database.createObjectStore(STORE_LOCATIONS, { keyPath: "timestamp" });
+            locStore.createIndex("username", "username", { unique: false });
+        }
+    };
+
+    // --- ENRUTADOR DE VISTAS (SPA) ---
+    function navigateTo(viewName) {
+        document.getElementById('view-auth').classList.add('hidden');
+        document.getElementById('view-tracker').classList.add('hidden');
+        document.getElementById('view-admin').classList.add('hidden');
+        document.getElementById('btn-logout').classList.add('hidden');
+
+        if (viewName === 'auth') {
+            document.getElementById('view-auth').classList.remove('hidden');
+            setupAuthEvents();
+        } else if (viewName === 'tracker') {
+            document.getElementById('view-tracker').classList.remove('hidden');
+            document.getElementById('btn-logout').classList.remove('hidden');
+            document.getElementById('tracker-user-display').textContent = currentUser;
+            initUserMap();
+            renderUserLogs();
+        } else if (viewName === 'admin') {
+            document.getElementById('view-admin').classList.remove('hidden');
+            document.getElementById('btn-logout').classList.remove('hidden');
+            initAdminMap();
+            loadAdminUserDashboard();
+        }
+    }
+
+    function checkSession() {
+        if (currentUser) {
+            if (currentUser === "admin") {
+                navigateTo('admin');
+            } else {
+                navigateTo('tracker');
+            }
+        } else {
+            navigateTo('auth');
+        }
+    }
+
+    // --- CONTROL DE LOGIN / AUTENTICACIÓN ---
+    function setupAuthEvents() {
+        const usernameInput = document.getElementById('login-username');
+        const passContainer = document.getElementById('admin-pass-container');
+        const formLogin = document.getElementById('form-login');
+        const errorMsg = document.getElementById('login-error-msg');
+
+        // Mostrar u ocultar contraseña dinámicamente si escribe "admin"
+        usernameInput.addEventListener('input', (e) => {
+            if (e.target.value.trim().toLowerCase() === 'admin') {
+                passContainer.classList.remove('hidden');
+            } else {
+                passContainer.classList.add('hidden');
+                errorMsg.classList.add('hidden');
+            }
+        });
+
+        formLogin.onsubmit = (e) => {
+            e.preventDefault();
+            const username = usernameInput.value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (username.toLowerCase() === 'admin') {
+                if (password === 'admin') {
+                    // Login Admin
+                    currentUser = "admin";
+                    localStorage.setItem("geotracker_username", "admin");
+                    errorMsg.classList.add('hidden');
+                    navigateTo('admin');
+                } else {
+                    errorMsg.classList.remove('hidden');
+                }
+            } else {
+                // Registrar/Acceder como usuario estándar
+                registerOrLoginUser(username);
+            }
+        };
+    }
+
+    function registerOrLoginUser(username) {
+        if (!db) return;
+        
+        const tx = db.transaction([STORE_USERS], "readwrite");
+        const store = tx.objectStore(STORE_USERS);
+        
+        // Registrar usuario en la base de datos si no existe
+        const userObj = { username: username, registeredAt: Date.now() };
+        store.put(userObj);
+
+        tx.oncomplete = () => {
+            currentUser = username;
+            localStorage.setItem("geotracker_username", username);
+            navigateTo('tracker');
+        };
+    }
+
+    // Botón Global de Salida (Cierre de Sesión)
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        stopTracking();
+        currentUser = null;
+        localStorage.removeItem("geotracker_username");
+        isFirstPointOfSession = true;
+        
+        // Destruir instancias de mapa de memoria para evitar reinicializaciones rotas
+        if (userMap) { userMap.remove(); userMap = null; }
+        if (adminMap) { adminMap.remove(); adminMap = null; }
+
+        // Limpiar inputs
+        document.getElementById('login-username').value = "";
+        document.getElementById('login-password').value = "";
+        document.getElementById('admin-pass-container').classList.add('hidden');
+
+        navigateTo('auth');
+    });
+
+    // --- INICIALIZADORES DE MAPAS (LEAFLET) ---
+    function initUserMap() {
+        if (userMap) return; // Evitar reinicializar si ya existe
+        
+        userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap, © CARTO',
+            maxZoom: 19
+        }).addTo(userMap);
+
+        userPolyline = L.polyline([], {
+            color: '#10b981', // emerald-500
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '6, 6'
+        }).addTo(userMap);
+    }
+
+    function initAdminMap() {
+        if (adminMap) return;
+
+        adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap, © CARTO',
+            maxZoom: 19
+        }).addTo(adminMap);
+
+        adminPolyline = L.polyline([], {
+            color: '#38bdf8', // sky-400
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '6, 6'
+        }).addTo(adminMap);
+    }
+
+    // --- MANEJO DE GEOLOCALIZACIÓN (RASTREO DE USUARIO) ---
+    const btnToggle = document.getElementById('btn-toggle');
+    const btnClear = document.getElementById('btn-clear');
+    const currentStatusDiv = document.getElementById('current-status');
+
+    btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
+
+    btnClear.addEventListener('click', () => {
+        const msg = "Se eliminará tu historial de ubicaciones de tu vista.\n\nNota: Los administradores mantendrán una copia segura para auditorías.";
+        if (confirm(msg)) {
+            softClearUserHistory();
+        }
+    });
+
+    function startTracking() {
+        if (!("geolocation" in navigator)) {
+            alert("Tu dispositivo o navegador no soporta geolocalización.");
+            return;
+        }
+
+        isFirstPointOfSession = true;
+
+        watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        });
+
+        btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
+        btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
+        btnToggle.querySelector('span').textContent = "Detener Rastreo";
+        btnToggle.querySelector('i').setAttribute('data-lucide', 'square');
+        currentStatusDiv.classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function stopTracking() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
+        btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
+        btnToggle.querySelector('span').textContent = "Iniciar Rastreo";
+        btnToggle.querySelector('i').setAttribute('data-lucide', 'play');
+        currentStatusDiv.classList.add('hidden');
+        lucide.createIcons();
+    }
+
+    function handleGeoSuccess(position) {
+        const { latitude, longitude, accuracy } = position.coords;
+        const timestamp = position.timestamp;
+        const timeString = new Date(timestamp).toLocaleTimeString();
+
+        document.getElementById('geo-coords').textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
+        document.getElementById('geo-time').textContent = timeString;
+
+        // Centrar mapa inteligente la primera vez del ciclo de rastreo
+        if (isFirstPointOfSession && userMap) {
+            userMap.setView([latitude, longitude], 16);
+            isFirstPointOfSession = false;
+        }
+
+        if (accuracy > 50) return; // Filtrar pings ruidosos (interiores sin cobertura satelital)
+
+        saveLocationToDb({
+            timestamp,
+            username: currentUser,
+            lat: latitude,
+            lon: longitude,
+            accuracy,
+            dateStr: new Date(timestamp).toLocaleDateString(),
+            timeStr: timeString,
+            userCleared: false // Bandera de soft delete por defecto
+        });
+    }
+
+    function handleGeoError(error) {
+        document.getElementById('geo-coords').textContent = `Error GPS: ${error.message}`;
+    }
+
+    // --- OPERACIONES CRUD DE BASE DE DATOS LOCAL ---
+    function saveLocationToDb(entry) {
+        if (!db) return;
+        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+        tx.objectStore(STORE_LOCATIONS).put(entry);
+        tx.oncomplete = () => renderUserLogs();
+    }
+
+    function renderUserLogs() {
+        if (!db || !currentUser) return;
+
+        const tx = db.transaction([STORE_LOCATIONS], "readonly");
+        const store = tx.objectStore(STORE_LOCATIONS);
+        const index = store.index("username");
+        const request = index.getAll(IDBKeyRange.only(currentUser));
+
+        request.onsuccess = () => {
+            const allLogs = request.result;
+            // Filtrar las que NO han sido borradas por el usuario
+            const visibleLogs = allLogs.filter(log => !log.userCleared);
+            
+            // Ordenar de más nuevo a más viejo
+            visibleLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+            document.getElementById('log-count').textContent = `${visibleLogs.length} registros`;
+
+            const container = document.getElementById('logs-container');
+            const emptyState = document.getElementById('empty-state');
+            container.querySelectorAll('.log-item').forEach(el => el.remove());
+
+            if (visibleLogs.length === 0) {
+                emptyState.classList.remove('hidden');
+                updateUserMapRender([]);
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            updateUserMapRender(visibleLogs);
+
+            visibleLogs.forEach((item) => {
+                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                const div = document.createElement('div');
+                div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-slate-800 rounded-lg text-slate-400">
+                            <i data-lucide="navigation" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium font-mono text-slate-200">Lat: ${item.lat.toFixed(5)} / Lon: ${item.lon.toFixed(5)}</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Precisión: ±${Math.round(item.accuracy)} metros</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1.5">
+                        <p class="text-sm font-semibold text-slate-400">${item.timeStr}</p>
+                        <p class="text-[10px] text-slate-600 font-medium">${item.dateStr}</p>
+                        <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer"
+                           class="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 bg-emerald-500/5 hover:bg-emerald-500/10 px-2.5 py-1 rounded-lg transition">
+                            <i data-lucide="external-link" class="w-3 h-3"></i>
+                            Ver en Maps
+                        </a>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            lucide.createIcons();
+        };
+    }
+
+    // SOFT DELETE: El usuario limpia su vista, pero se conserva para el Admin
+    function softClearUserHistory() {
+        if (!db || !currentUser) return;
+
+        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+        const store = tx.objectStore(STORE_LOCATIONS);
+        const index = store.index("username");
+        const request = index.getAll(IDBKeyRange.only(currentUser));
+
+        request.onsuccess = () => {
+            const records = request.result;
+            records.forEach(item => {
+                item.userCleared = true;
+                store.put(item);
+            });
+        };
+
+        tx.oncomplete = () => {
+            isFirstPointOfSession = true;
+            renderUserLogs();
+        };
+    }
+
+    // --- ACTUALIZACIÓN DE MAPA DE USUARIO ---
+    function updateUserMapRender(list) {
+        if (!userMap) return;
+
+        // Limpieza profunda de marcadores
+        userMarkers.forEach(m => userMap.removeLayer(m));
+        userMarkers = [];
+
+        if (list.length === 0) {
+            userPolyline.setLatLngs([]);
+            return;
+        }
+
+        // Orden de polilínea cronológico (Pasado -> Presente)
+        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+        const routeCoords = sorted.map(item => [item.lat, item.lon]);
+
+        sorted.forEach((item, index) => {
+            const latlng = [item.lat, item.lon];
+            const isLast = index === sorted.length - 1;
+
+            const markerIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                    width: ${isLast ? '18px' : '12px'};
+                    height: ${isLast ? '18px' : '12px'};
+                    background: ${isLast ? '#10b981' : '#34d399'};
+                    border: 2px solid ${isLast ? '#fff' : '#10b981'};
+                    border-radius: 50%;
+                    box-shadow: 0 0 ${isLast ? '10px #10b981' : '4px #10b98155'};
+                    margin: auto;
+                "></div>`,
+                iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
+                iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
+            });
+
+            const marker = L.marker(latlng, { icon: markerIcon })
+                .addTo(userMap)
+                .bindPopup(`
+                    <div style="font-size:12px; line-height:1.6">
+                        <strong style="color:#10b981">${item.timeStr}</strong><br>
+                        <span style="font-family:monospace">Lat: ${item.lat.toFixed(5)}</span><br>
+                        <span style="font-family:monospace">Lon: ${item.lon.toFixed(5)}</span><br>
+                        <span style="color:#94a3b8">Precisión: ±${Math.round(item.accuracy)}m</span>
+                    </div>
+                `);
+            userMarkers.push(marker);
+        });
+
+        userPolyline.setLatLngs(routeCoords);
+
+        // Auto encuadre de la pantalla
+        if (routeCoords.length > 1) {
+            userMap.fitBounds(userPolyline.getBounds(), { padding: [40, 40] });
+        } else if (routeCoords.length === 1) {
+            userMap.setView(routeCoords[0], 15);
+        }
+        
+        // Corrección de renderizado por Leaflet al cambiar de contenedor oculto
+        setTimeout(() => userMap.invalidateSize(), 50);
+    }
+
+    // =======================================================
+    // --- LÓGICA DE CONTROL DE ADMINISTRADOR ---
+    // =======================================================
+    let selectedAdminUser = null;
+
+    function loadAdminUserDashboard() {
+        if (!db) return;
+
+        const tx = db.transaction([STORE_USERS], "readonly");
+        const store = tx.objectStore(STORE_USERS);
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+            const usersList = req.result.filter(u => u.username !== 'admin');
+            const listContainer = document.getElementById('admin-user-list');
+            listContainer.innerHTML = "";
+
+            if (usersList.length === 0) {
+                listContainer.innerHTML = `
+                    <p class="text-xs text-slate-500 text-center py-4">No hay usuarios registrados.</p>
+                `;
+                return;
+            }
+
+            usersList.forEach(user => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${
+                    selectedAdminUser === user.username 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-slate-100' 
+                    : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                }`;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="font-medium text-sm">${user.username}</span>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                `;
+                btn.onclick = () => selectAdminUser(user.username);
+                listContainer.appendChild(btn);
+            });
+            lucide.createIcons();
+        };
+    }
+
+    function selectAdminUser(username) {
+        selectedAdminUser = username;
+        // Re-pintar lista para activar estilo seleccionado
+        loadAdminUserDashboard();
+
+        document.getElementById('admin-no-selection').classList.add('hidden');
+        const detailsContainer = document.getElementById('admin-user-details');
+        detailsContainer.classList.remove('hidden');
+
+        document.getElementById('admin-selected-username').textContent = username;
+
+        renderAdminSelectedUserData(username);
+    }
+
+    function renderAdminSelectedUserData(username) {
+        if (!db) return;
+
+        const tx = db.transaction([STORE_LOCATIONS], "readonly");
+        const store = tx.objectStore(STORE_LOCATIONS);
+        const index = store.index("username");
+        const request = index.getAll(IDBKeyRange.only(username));
+
+        request.onsuccess = () => {
+            const allLogs = request.result;
+            // Orden descendente (más recientes arriba)
+            allLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+            document.getElementById('admin-selected-count').textContent = `${allLogs.length} Registros`;
+
+            const listContainer = document.getElementById('admin-selected-logs');
+            listContainer.innerHTML = "";
+
+            if (allLogs.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center py-8 bg-slate-800/20 border border-slate-800/80 border-dashed rounded-xl">
+                        <p class="text-xs text-slate-500">Este usuario no tiene coordenadas registradas en la base de datos.</p>
+                    </div>
+                `;
+                updateAdminMapRender([]);
+                return;
+            }
+
+            // Actualizar mapa del administrador
+            updateAdminMapRender(allLogs);
+
+            allLogs.forEach(item => {
+                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                const div = document.createElement('div');
+                
+                // Si el usuario eliminó el log de su panel, mostramos un badge visualmente descriptivo de auditoría
+                const badgeHtml = item.userCleared 
+                    ? `<span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">BORRADO POR USUARIO</span>`
+                    : `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVO</span>`;
+
+                div.className = "p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex justify-between items-center";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="p-1.5 bg-slate-800 rounded text-slate-400">
+                            <i data-lucide="navigation-2" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-mono font-bold text-slate-200">Lat: ${item.lat.toFixed(5)} / Lon: ${item.lon.toFixed(5)}</p>
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <span class="text-[10px] text-slate-500">Precisión: ±${Math.round(item.accuracy)}m</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-semibold text-slate-400">${item.timeStr}</p>
+                        <p class="text-[9px] text-slate-500 font-medium">${item.dateStr}</p>
+                        <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-[10px] text-sky-400 hover:underline mt-1 block">Ver en Maps →</a>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+            lucide.createIcons();
+        };
+    }
+
+    function updateAdminMapRender(list) {
+        if (!adminMap) return;
+
+        // Limpiar marcadores viejos de administración
+        adminMarkers.forEach(m => adminMap.removeLayer(m));
+        adminMarkers = [];
+
+        if (list.length === 0) {
+            adminPolyline.setLatLngs([]);
+            return;
+        }
+
+        // Orden de polilínea cronológico (Pasado -> Presente)
+        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+        const routeCoords = sorted.map(item => [item.lat, item.lon]);
+
+        sorted.forEach((item, index) => {
+            const latlng = [item.lat, item.lon];
+            const isLast = index === sorted.length - 1;
+
+            // En el mapa del administrador, diferenciamos con color si el punto está borrado por el usuario
+            let pinColor = '#38bdf8'; // Sky Blue estándar
+            if (item.userCleared) pinColor = '#f87171'; // Rojo para borrados
+            else if (isLast) pinColor = '#34d399'; // Verde para el último punto
+
+            const markerIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                    width: ${isLast ? '16px' : '10px'};
+                    height: ${isLast ? '16px' : '10px'};
+                    background: ${pinColor};
+                    border: 2px solid #fff;
+                    border-radius: 50%;
+                    box-shadow: 0 0 8px ${pinColor};
+                    margin: auto;
+                "></div>`,
+                iconSize: [isLast ? 16 : 10, isLast ? 16 : 10],
+                iconAnchor: [isLast ? 8 : 5, isLast ? 8 : 5],
+            });
+
+            const marker = L.marker(latlng, { icon: markerIcon })
+                .addTo(adminMap)
+                .bindPopup(`
+                    <div style="font-size:11px; line-height:1.5">
+                        <strong style="color:${pinColor}">${item.timeStr} (${item.dateStr})</strong><br>
+                        Lat: ${item.lat.toFixed(5)}<br>
+                        Lon: ${item.lon.toFixed(5)}<br>
+                        Estado: <span style="font-weight:bold">${item.userCleared ? 'Borrado por usuario' : 'Activo'}</span>
+                    </div>
+                `);
+            adminMarkers.push(marker);
+        });
+
+        adminPolyline.setLatLngs(routeCoords);
+
+        // Ajustar visualización
+        if (routeCoords.length > 1) {
+            adminMap.fitBounds(adminPolyline.getBounds(), { padding: [40, 40] });
+        } else if (routeCoords.length === 1) {
+            adminMap.setView(routeCoords[0], 15);
+        }
+
+        // Reajustar dimensiones para evitar problemas de renderizado de capas
+        setTimeout(() => adminMap.invalidateSize(), 50);
+    }
+
+    // Helper estado de Base de Datos
+    function updateDbStatus(text, badgeClass) {
+        document.getElementById('db-status').innerHTML =
+            `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
+    }
+</script>
+</body>
+</html>
+
+
+### 💎 Aspectos destacados de esta Refactorización (V3):
+1. **Borrado Lógico (*Soft Delete*)**: Cuando el usuario hace clic en "Limpiar Mi Historial", no disparamos un `delete` destructivo en el almacén de datos. En su lugar, mutamos el registro marcando la bandera `userCleared = true`. Así, deja de mostrarse en su listado y ruta, pero persiste inalterado para auditorías de administración.
+2. **Índice Compuesto en IndexedDB**: Hemos indexado el *store* `locations` mediante la propiedad `username`. Esto nos permite realizar consultas directas y escalables con `IDBKeyRange.only(username)` sin tener que iterar linealmente sobre miles de ubicaciones de otros usuarios en memoria JS.
+3. **Control Inteligente de Leaflet (`invalidateSize()`)**: Cuando Leaflet se inicializa dentro de un elemento oculto (`hidden` o `display:none`), las dimensiones del canvas se calculan de manera defectuosa, provocando mapas grises o desplazados. Lo hemos solucionado integrando una ejecución programada asíncrona mediante `setTimeout(() => map.invalidateSize(), 50)` al cambiar de pantalla.
+4. **Diseño Visual con Auditoría de Estado**: El mapa de administración no solo te permite ver las rutas; el listado detalla con badges de estado las posiciones reales y los puntos que han sido borrados por el usuario. El mapa de administración también usa colores dinámicos (rojo para logs borrados y azul para logs activos).
