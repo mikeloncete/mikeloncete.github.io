@@ -52,6 +52,21 @@
         </div>
     </header>
 
+    <!-- BANNER DE DIAGNÓSTICO DE ERRORES DE FIREBASE -->
+    <div id="cloud-global-error" class="hidden mt-4 p-4 bg-red-950/40 border border-red-800/80 rounded-2xl text-red-200 text-xs space-y-2">
+        <div class="flex items-start gap-2">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400 shrink-0"></i>
+            <div>
+                <p class="font-bold">Error de conexión con la nube</p>
+                <p id="cloud-global-error-text" class="mt-1 text-red-300 leading-relaxed">Detectando problema...</p>
+            </div>
+        </div>
+        <div class="pt-2 border-t border-red-800/30 flex justify-between items-center text-[10px] text-red-400">
+            <span>Solución sugerida arriba</span>
+            <button onclick="document.getElementById('cloud-global-error').classList.add('hidden')" class="underline hover:text-red-300 cursor-pointer">Descartar</button>
+        </div>
+    </div>
+
     <!-- ======================================================= -->
     <!-- VISTA 1: AUTHENTICATION / LOGIN -->
     <!-- ======================================================= -->
@@ -381,11 +396,41 @@
             isCloudActive = true;
         } catch (e) {
             console.error("Error al inicializar la base de datos en la nube:", e);
+            handleFirebaseError(e);
         }
     }
 
     // Inicializar Iconos de UI
     lucide.createIcons();
+
+    // --- DIAGNÓSTICO DE ERRORES FIREBASE ---
+    function handleFirebaseError(error) {
+        console.error("Detalles del error de Firebase:", error);
+        const errorBanner = document.getElementById('cloud-global-error');
+        const errorText = document.getElementById('cloud-global-error-text');
+
+        if (!errorBanner || !errorText) return;
+
+        errorBanner.classList.remove('hidden');
+
+        let friendlyMessage = `Error [${error.code || 'Desconocido'}]: `;
+
+        // Diagnóstico preciso inteligente
+        if (error.code === 'auth/operation-not-allowed') {
+            friendlyMessage += "El inicio de sesión 'Anónimo' está desactivado en tu proyecto. Ve a tu consola de Firebase -> Authentication -> pestaña 'Sign-in method' y activa el proveedor 'Anónimo'.";
+        } else if (error.code === 'permission-denied') {
+            friendlyMessage += "Permiso denegado por reglas de seguridad. Ve a la consola de Firebase -> Cloud Firestore -> pestaña 'Reglas' (Rules) y asegúrate de permitir lectura/escritura (por ejemplo, configurarlas en Modo de Prueba).";
+        } else if (error.message && error.message.includes("Could not reach Cloud Firestore backend")) {
+            friendlyMessage += "No se puede contactar con Firestore. Revisa si has 'Creado la Base de Datos' Firestore dentro del panel de Firebase, o si tu conexión a internet está bloqueada por proxy.";
+        } else if (error.code === 'auth/network-request-failed') {
+            friendlyMessage += "Error de red al autenticar con Firebase. Comprueba tu conexión.";
+        } else {
+            friendlyMessage += error.message || "Asegúrate de que la base de datos Firestore esté inicializada en tu consola de Firebase y que las reglas de lectura/escritura estén abiertas.";
+        }
+
+        errorText.textContent = friendlyMessage;
+        updateDbStatus("Error Nube", "bg-red-500");
+    }
 
     // --- INICIALIZACIÓN DE LA DB LOCAL (IndexedDB) ---
     const dbRequest = indexedDB.open(DB_NAME, 2);
@@ -407,7 +452,7 @@
                     }
                 } catch (e) {
                     console.error("Fallo de autenticación en la nube:", e);
-                    updateDbStatus("Error de Sinc.", "bg-red-500");
+                    handleFirebaseError(e);
                 }
             };
             initAuth();
@@ -416,6 +461,7 @@
                 cloudUser = user;
                 if (user) {
                     updateDbStatus("Nube Conectada", "bg-emerald-500");
+                    document.getElementById('cloud-global-error').classList.add('hidden'); // Ocultar si conecta bien
                     // Sincronizar logs que hayamos guardado localmente cuando estábamos desconectados
                     syncAllLocalLogsToCloud();
                     // Iniciar oyentes en tiempo real
@@ -616,6 +662,7 @@
         }).addTo(userMap);
     }
 
+    // --- INICIALIZAR MAPA DE ADMIN ---
     function initAdminMap() {
         if (adminMap) return;
 
@@ -715,6 +762,11 @@
         });
     }
 
+    function handleGeoError(error) {
+        const coordsEl = document.getElementById('geo-coords');
+        if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
+    }
+
     // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
     function saveLocationToDb(entry) {
         if (!db) return;
@@ -745,6 +797,7 @@
             await setDoc(locRef, entry);
         } catch (e) {
             console.error("Fallo al subir coordenada a la nube:", e);
+            handleFirebaseError(e);
         }
     }
 
@@ -916,7 +969,7 @@
     function startCloudRealtimeListeners() {
         if (!isCloudActive || !cloudUser || currentUser !== "admin") return;
 
-        // 1. Escuchar censo de usuarios
+        // 1. Escuchar censo de usuarios (Cumple con callbacks obligatorios para errores de Firestore)
         const usersCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'users');
         unsubscribeUsers = onSnapshot(usersCol, (snapshot) => {
             const usersList = [];
@@ -926,9 +979,10 @@
             renderAdminUsersList(usersList);
         }, (err) => {
             console.error("Fallo escuchador de usuarios en la nube:", err);
+            handleFirebaseError(err);
         });
 
-        // 2. Escuchar todas las ubicaciones globales
+        // 2. Escuchar todas las ubicaciones globales (Con callback obligatorio de error)
         const locsCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'locations');
         unsubscribeLocations = onSnapshot(locsCol, (snapshot) => {
             cloudLocations = [];
@@ -942,6 +996,7 @@
             }
         }, (err) => {
             console.error("Fallo escuchador de rutas en la nube:", err);
+            handleFirebaseError(err);
         });
     }
 
@@ -1291,6 +1346,7 @@
         alert("Configuración de nube eliminada. Volviendo al modo local...");
         location.reload();
     };
+
     // Exportar variables de ciclo al scope global de Javascript
     window.selectAdminUser = selectAdminUser;
     window.startTracking = startTracking;
