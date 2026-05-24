@@ -859,10 +859,3 @@
 </script>
 </body>
 </html>
-
-
-### 💎 Aspectos destacados de esta Refactorización (V3):
-1. **Borrado Lógico (*Soft Delete*)**: Cuando el usuario hace clic en "Limpiar Mi Historial", no disparamos un `delete` destructivo en el almacén de datos. En su lugar, mutamos el registro marcando la bandera `userCleared = true`. Así, deja de mostrarse en su listado y ruta, pero persiste inalterado para auditorías de administración.
-2. **Índice Compuesto en IndexedDB**: Hemos indexado el *store* `locations` mediante la propiedad `username`. Esto nos permite realizar consultas directas y escalables con `IDBKeyRange.only(username)` sin tener que iterar linealmente sobre miles de ubicaciones de otros usuarios en memoria JS.
-3. **Control Inteligente de Leaflet (`invalidateSize()`)**: Cuando Leaflet se inicializa dentro de un elemento oculto (`hidden` o `display:none`), las dimensiones del canvas se calculan de manera defectuosa, provocando mapas grises o desplazados. Lo hemos solucionado integrando una ejecución programada asíncrona mediante `setTimeout(() => map.invalidateSize(), 50)` al cambiar de pantalla.
-4. **Diseño Visual con Auditoría de Estado**: El mapa de administración no solo te permite ver las rutas; el listado detalla con badges de estado las posiciones reales y los puntos que han sido borrados por el usuario. El mapa de administración también usa colores dinámicos (rojo para logs borrados y azul para logs activos).
