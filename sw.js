@@ -57,19 +57,21 @@ self.addEventListener('fetch', (event) => {
                         cache.put(event.request, responseToCache);
                     });
                 }
-            .catch (() => {
-                    // Si la red falla, intentar servir desde caché
-                    return caches.match(event.request).then((cachedResponse) => {
-                        if (cachedResponse) {
-                            return cachedResponse;
-                        }
-                        // Si no hay caché, mostrar página offline básica
-                        return new Response('Offline - No hay conexión', {
-                            status: 503,
-                            statusText: 'Service Unavailable',
-                            headers: new Headers({ 'Content-Type': 'text/plain' })
-                        });
+                return response;
+            })
+            .catch(() => {
+                // Si la red falla, intentar servir desde caché
+                return caches.match(event.request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+                    // Si no hay caché, mostrar página offline básica
+                    return new Response('Offline - No hay conexión', {
+                        status: 503,
+                        statusText: 'Service Unavailable',
+                        headers: new Headers({ 'Content-Type': 'text/plain' })
                     });
-                })
+                });
+            })
     );
 });
