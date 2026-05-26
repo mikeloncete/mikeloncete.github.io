@@ -3,8 +3,20 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>GeoHistory</title>
+
+    <!-- PWA - Configuración para pantalla completa en móvil -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GeoHistory">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Rastreador GPS de ubicaciones en tiempo real">
+
+    <!-- Manifest PWA -->
+    <link rel="manifest" href="manifest.json">
+
     <!-- Tailwind CSS (Framework UI) -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Lucide Icons -->
@@ -13,6 +25,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
+        /* Soporte para pantalla completa en móvil - Safe area para notch de iOS */
+        /* Solo aplica en dispositivos con notch (iPhone X+), en desktop los valores son 0 */
+        @supports (padding: env(safe-area-inset-top)) {
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+            }
+        }
+
         .map-container {
             height: 320px;
             border-radius: 1rem;
@@ -56,7 +79,7 @@
                     <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Conectando...
                 </span>
                 <button onclick="openCloudModal()" id="btn-cloud-settings"
-                    class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                    class="hidden text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
                     <i data-lucide="settings" class="w-3.5 h-3.5"></i> Nube
                 </button>
                 <button id="btn-logout"
@@ -478,7 +501,9 @@
             let friendlyMessage = `Error [${error.code || 'Desconocido'}]: `;
 
             // Diagnóstico preciso inteligente
-            if (error.code === 'auth/operation-not-allowed') {
+            if (error.code === 'auth/configuration-not-found') {
+                friendlyMessage += "Authentication NO está configurado en Firebase. SOLUCIÓN: Ve a Firebase Console → tu proyecto 'geohistory-f246c' → Authentication → Click 'Get started' → Sign-in method → Habilita 'Anonymous' (Anónimo).";
+            } else if (error.code === 'auth/operation-not-allowed') {
                 friendlyMessage += "El inicio de sesión 'Anónimo' está desactivado en tu proyecto. Ve a tu consola de Firebase -> Authentication -> pestaña 'Sign-in method' y activa el proveedor 'Anónimo'.";
             } else if (error.code === 'permission-denied') {
                 friendlyMessage += "Permiso denegado por reglas de seguridad. Ve a la consola de Firebase -> Cloud Firestore -> pestaña 'Reglas' (Rules) y asegúrate de permitir lectura/escritura (por ejemplo, configurarlas en Modo de Prueba).";
@@ -590,6 +615,7 @@
             document.getElementById('view-tracker').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
             document.getElementById('btn-logout').classList.add('hidden');
+            document.getElementById('btn-cloud-settings').classList.add('hidden');
 
             if (viewName === 'auth') {
                 document.getElementById('view-auth').classList.remove('hidden');
@@ -603,6 +629,7 @@
             } else if (viewName === 'admin') {
                 document.getElementById('view-admin').classList.remove('hidden');
                 document.getElementById('btn-logout').classList.remove('hidden');
+                document.getElementById('btn-cloud-settings').classList.remove('hidden');
                 initAdminMap();
                 loadAdminUserDashboard();
             }
@@ -832,6 +859,8 @@
             const timestamp = position.timestamp;
             const timeString = new Date(timestamp).toLocaleTimeString();
 
+            console.log(`📍 Posición recibida: Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}, Precisión: ±${Math.round(accuracy)}m`);
+
             document.getElementById('geo-coords').textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
             document.getElementById('geo-time').textContent = timeString;
 
@@ -840,8 +869,16 @@
                 isFirstPointOfSession = false;
             }
 
-            if (accuracy > 50) return; // Filtrado de posiciones ruidosas
+            // Filtrado de posiciones: más permisivo en desktop (WiFi/IP menos preciso)
+            // Móvil con GPS: < 50m típicamente
+            // Desktop WiFi: 50-500m típicamente
+            // Desktop IP: 1000-5000m típicamente
+            if (accuracy > 5000) {
+                console.warn(`⚠️ Posición descartada: precisión demasiado baja (${Math.round(accuracy)}m)`);
+                return;
+            }
 
+            console.log(`✅ Guardando posición (precisión aceptable: ${Math.round(accuracy)}m)`);
             saveLocationToDb({
                 timestamp,
                 username: currentUser,
@@ -861,18 +898,27 @@
 
         // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
         function saveLocationToDb(entry) {
-            if (!db) return;
+            if (!db) {
+                console.error('❌ No se puede guardar: IndexedDB no disponible');
+                return;
+            }
+
+            console.log('💾 Guardando en IndexedDB:', entry);
 
             // 1. Guardar siempre en local (IndexedDB)
             const tx = db.transaction([STORE_LOCATIONS], "readwrite");
             tx.objectStore(STORE_LOCATIONS).put(entry);
             tx.oncomplete = () => {
+                console.log('✅ Guardado exitoso en IndexedDB');
                 renderUserLogs();
 
                 // 2. Si hay conexión en la nube, sincronizar asíncronamente
                 if (isCloudActive && cloudUser) {
                     syncLocationToCloud(entry);
                 }
+            };
+            tx.onerror = (e) => {
+                console.error('❌ Error al guardar en IndexedDB:', e);
             };
         }
 
@@ -1449,6 +1495,19 @@
             if (dbStatusEl) {
                 dbStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
             }
+        }
+
+        // --- REGISTRO DE SERVICE WORKER PARA PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.warn('⚠️ Error al registrar Service Worker:', error);
+                    });
+            });
         }
     </script>
 </body>
