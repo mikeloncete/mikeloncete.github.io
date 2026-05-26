@@ -47,7 +47,8 @@
         <header class="flex justify-between items-center py-6 border-b border-slate-800">
             <div class="flex items-center gap-2">
                 <i data-lucide="map-pin" class="text-emerald-400 w-8 h-8"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Geo<span class="text-emerald-400">History</span></h1>
+                <h1 class="text-2xl font-bold tracking-tight">Geo<span class="text-emerald-400">History</span><span
+                        class="text-xs text-slate-500 font-normal ml-1">v3.1</span></h1>
             </div>
             <div class="flex items-center gap-3 select-none">
                 <span id="db-status"
@@ -441,15 +442,22 @@
         // Inicializar Nube si hay configuración activa
         if (firebaseConfig) {
             try {
+                console.log("🔄 Inicializando Firebase con config:", firebaseConfig.projectId);
                 appCloud = initializeApp(firebaseConfig);
+                console.log("✅ Firebase App inicializada");
                 authCloud = getAuth(appCloud);
+                console.log("✅ Firebase Auth inicializado");
                 dbCloud = getFirestore(appCloud);
+                console.log("✅ Firestore inicializado");
                 isCloudActive = true;
+                console.log("✅ Cloud activa, esperando IndexedDB...");
             } catch (e) {
-                console.error("Error al inicializar la base de datos en la nube:", e);
+                console.error("❌ Error al inicializar la base de datos en la nube:", e);
                 handleFirebaseError(e);
                 isCloudActive = false;
             }
+        } else {
+            console.log("⚠️ No hay configuración de Firebase, usando modo local");
         }
 
         // Inicializar Iconos de UI
@@ -491,15 +499,17 @@
 
         dbRequest.onsuccess = (event) => {
             db = event.target.result;
+            console.log("✅ IndexedDB abierta correctamente");
 
             // Si la nube está activa, iniciamos sesión serverless primero
             if (isCloudActive) {
+                console.log("🔄 Intentando conectar con Firebase...");
                 updateDbStatus("Conectando Nube...", "bg-amber-500 animate-pulse");
 
                 // Timeout de 5 segundos para conexión Firebase
                 firebaseConnectionTimeout = setTimeout(() => {
                     if (!cloudUser) {
-                        console.warn("Timeout de conexión Firebase - continuando en modo local");
+                        console.warn("⏱️ Timeout de conexión Firebase (5s) - continuando en modo local");
                         isCloudActive = false;
                         updateDbStatus("Modo Local (Firebase timeout)", "bg-blue-500");
                         checkSession();
@@ -508,13 +518,18 @@
 
                 const initAuth = async () => {
                     try {
+                        console.log("🔐 Iniciando autenticación anónima...");
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(authCloud, __initial_auth_token);
+                            console.log("✅ Autenticación con token personalizado exitosa");
                         } else {
                             await signInAnonymously(authCloud);
+                            console.log("✅ Autenticación anónima exitosa");
                         }
                     } catch (e) {
-                        console.error("Fallo de autenticación en la nube:", e);
+                        console.error("❌ Fallo de autenticación en la nube:", e);
+                        console.error("Código de error:", e.code);
+                        console.error("Mensaje:", e.message);
                         handleFirebaseError(e);
                         isCloudActive = false;
                         if (firebaseConnectionTimeout) {
@@ -532,6 +547,7 @@
                     }
                     cloudUser = user;
                     if (user) {
+                        console.log("✅ Usuario autenticado:", user.uid);
                         updateDbStatus("Nube Conectada", "bg-emerald-500");
                         document.getElementById('cloud-global-error').classList.add('hidden'); // Ocultar si conecta bien
                         // Sincronizar logs que hayamos guardado localmente cuando estábamos desconectados
@@ -539,11 +555,13 @@
                         // Iniciar oyentes en tiempo real
                         startCloudRealtimeListeners();
                     } else {
+                        console.log("⚠️ Sin usuario autenticado");
                         updateDbStatus("Modo Local", "bg-blue-500");
                     }
                     checkSession();
                 });
             } else {
+                console.log("📱 Iniciando en modo local (sin Firebase)");
                 updateDbStatus("Modo Local", "bg-blue-500");
                 checkSession();
             }
@@ -1089,8 +1107,8 @@
             cleanList.forEach(user => {
                 const btn = document.createElement('button');
                 btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${selectedAdminUser === user.username
-                        ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
-                        : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
+                    : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                     }`;
                 btn.innerHTML = `
                 <div class="flex items-center gap-2">
