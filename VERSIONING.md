@@ -82,3 +82,18 @@ Si corriges un error de botón:
 ### Corregido
 - Botón de exportar no respondía en iOS Safari
 ```
+
+## Navegación del Código
+
+El código de `index.html` está organizado en **12 secciones** con separadores visuales.
+
+Para encontrar dónde hacer cambios:
+- **GPS/Tracking:** Sección 6 (línea ~950)
+- **Mapas:** Sección 5 (línea ~900) o Sección 9 (línea ~1780)
+- **Firebase:** Sección 2 (línea ~630) o Sección 8 (línea ~1400)
+- **Cruces:** Sección 10 (línea ~1886)
+- **UI Usuario:** Sección 7 (línea ~1210)
+- **Admin:** Sección 8 (línea ~1400)
+
+Ver [README_CODE.md](README_CODE.md) para guía completa de navegación.
+

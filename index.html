@@ -501,11 +501,83 @@
 
     <!-- SDK de Base de Datos en la Nube (Firebase v11) -->
     <script type="module">
+        /*
+        ╔══════════════════════════════════════════════════════════════════════════════╗
+        ║                           GEOHISTORY v3.2                                    ║
+        ║                    Progressive Web App de Tracking GPS                       ║
+        ╚══════════════════════════════════════════════════════════════════════════════╝
+        
+        📑 ÍNDICE DE CÓDIGO:
+        
+        🔧 SECCIÓN 1: CONFIGURACIÓN Y VARIABLES GLOBALES (línea 520)
+           - Firebase imports
+           - Variables de estado (DB, mapas, tracking)
+           - Configuración Firebase
+        
+        💾 SECCIÓN 2: INICIALIZACIÓN DE BASES DE DATOS (línea 630)
+           - IndexedDB setup
+           - Firebase connection
+           - Manejo de errores de conexión
+        
+        🗺️ SECCIÓN 3: NAVEGACIÓN Y VISTAS (línea 730)
+           - Router SPA (auth, tracker, admin)
+           - Gestión de vistas
+        
+        🔐 SECCIÓN 4: AUTENTICACIÓN (línea 780)
+           - Login/logout
+           - Registro de usuarios
+           - Gestión de sesiones
+        
+        🗺️ SECCIÓN 5: MAPAS LEAFLET (línea 900)
+           - Inicialización de mapas (user, admin)
+           - Renderizado de polylines
+        
+        📍 SECCIÓN 6: TRACKING GPS (línea 950)
+           - Start/stop tracking
+           - Wake Lock API
+           - Geolocalización
+           - Guardado de ubicaciones
+        
+        👤 SECCIÓN 7: PANEL DE USUARIO (línea 1210)
+           - Visualización de logs
+           - Exportar/importar datos
+           - Mapa de usuario
+        
+        👑 SECCIÓN 8: PANEL DE ADMINISTRADOR (línea 1400)
+           - Dashboard de usuarios
+           - Visualización de rutas
+           - Sincronización Firebase en tiempo real
+        
+        🌍 SECCIÓN 9: MAPA GLOBAL (línea 1780)
+           - Mapa con todas las rutas
+           - Sistema de colores por usuario
+           - Leyenda dinámica
+        
+        ⚡ SECCIÓN 10: DETECCIÓN DE CRUCES (línea 1886)
+           - Algoritmo de intersección de rutas
+           - Cálculo Haversine
+           - Guardado y renderizado de cruces
+        
+        ☁️ SECCIÓN 11: CONFIGURACIÓN DE NUBE (línea 1702)
+           - Modal de configuración Firebase
+           - Guardado de credenciales
+        
+        🛠️ SECCIÓN 12: UTILIDADES Y SERVICE WORKER (línea 2114)
+           - Helpers de UI
+           - Registro de Service Worker
+        
+        ════════════════════════════════════════════════════════════════════════════════
+        */
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🔧 SECCIÓN 1: CONFIGURACIÓN Y VARIABLES GLOBALES
+        // ════════════════════════════════════════════════════════════════════════════════
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- DB & CONFIGURACIONES ---
+        // --- Variables de Estado Principal ---
         let db = null;
         let watchId = null;
         let userMap = null;
@@ -597,6 +669,10 @@
         lucide.createIcons();
 
         // --- DIAGNÓSTICO DE ERRORES FIREBASE ---
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 💾 SECCIÓN 2: INICIALIZACIÓN DE BASES DE DATOS
+        // ════════════════════════════════════════════════════════════════════════════════
+
         function handleFirebaseError(error) {
             console.error("Detalles del error de Firebase:", error);
             const errorBanner = document.getElementById('cloud-global-error');
@@ -724,7 +800,10 @@
             }
         };
 
-        // --- ENRUTADOR DE VISTAS (SPA) ---
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🗺️ SECCIÓN 3: NAVEGACIÓN Y VISTAS (SPA Router)
+        // ════════════════════════════════════════════════════════════════════════════════
+
         function navigateTo(viewName) {
             document.getElementById('view-auth').classList.add('hidden');
             document.getElementById('view-tracker').classList.add('hidden');
@@ -762,479 +841,498 @@
                         // Si ya existe, solo refrescar las rutas
                         refreshGlobalMap();
                     }
+                }, 300);
+            }
 
-                    function checkSession() {
-                        if (currentUser) {
-                            if (currentUser === "admin") {
-                                navigateTo('admin');
-                            } else {
-                                navigateTo('tracker');
-                            }
-                        } else {
-                            navigateTo('auth');
-                        }
+            lucide.createIcons();
+        }
+
+        function checkSession() {
+            if (currentUser) {
+                if (currentUser === "admin") {
+                    navigateTo('admin');
+                } else {
+                    navigateTo('tracker');
+                }
+            } else {
+                navigateTo('auth');
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🔐 SECCIÓN 4: AUTENTICACIÓN Y GESTIÓN DE SESIONES
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        function setupAuthEvents() {
+            const usernameInput = document.getElementById('login-username');
+            const passContainer = document.getElementById('admin-pass-container');
+            const formLogin = document.getElementById('form-login');
+            const errorMsg = document.getElementById('login-error-msg');
+            const adminBtn = document.getElementById('btn-admin-shortcut');
+
+            // Mostrar u ocultar contraseña dinámicamente si escribe "admin" de forma manual
+            usernameInput.addEventListener('input', (e) => {
+                if (e.target.value.trim().toLowerCase() === 'admin') {
+                    passContainer.classList.remove('hidden');
+                } else {
+                    passContainer.classList.add('hidden');
+                    errorMsg.classList.add('hidden');
+                }
+            });
+
+            // Botón de Acceso Rápido Administrador
+            adminBtn.onclick = () => {
+                currentUser = "admin";
+                localStorage.setItem("geotracker_username", "admin");
+                errorMsg.classList.add('hidden');
+                // Si la nube está activa, levantamos escuchas en tiempo real para el admin
+                startCloudRealtimeListeners();
+                navigateTo('admin');
+            };
+
+            formLogin.onsubmit = (e) => {
+                e.preventDefault();
+                const username = usernameInput.value.trim();
+                const password = document.getElementById('login-password').value;
+
+                if (username.toLowerCase() === 'admin') {
+                    if (password === 'admin') {
+                        currentUser = "admin";
+                        localStorage.setItem("geotracker_username", "admin");
+                        errorMsg.classList.add('hidden');
+                        startCloudRealtimeListeners();
+                        navigateTo('admin');
+                    } else {
+                        errorMsg.classList.remove('hidden');
                     }
+                } else {
+                    registerOrLoginUser(username);
+                }
+            };
+        }
 
-                    // --- CONTROL DE LOGIN / AUTENTICACIÓN ---
-                    function setupAuthEvents() {
-                        const usernameInput = document.getElementById('login-username');
-                        const passContainer = document.getElementById('admin-pass-container');
-                        const formLogin = document.getElementById('form-login');
-                        const errorMsg = document.getElementById('login-error-msg');
-                        const adminBtn = document.getElementById('btn-admin-shortcut');
+        function registerOrLoginUser(username) {
+            if (!db) return;
 
-                        // Mostrar u ocultar contraseña dinámicamente si escribe "admin" de forma manual
-                        usernameInput.addEventListener('input', (e) => {
-                            if (e.target.value.trim().toLowerCase() === 'admin') {
-                                passContainer.classList.remove('hidden');
-                            } else {
-                                passContainer.classList.add('hidden');
-                                errorMsg.classList.add('hidden');
-                            }
-                        });
+            const tx = db.transaction([STORE_USERS], "readwrite");
+            const store = tx.objectStore(STORE_USERS);
 
-                        // Botón de Acceso Rápido Administrador
-                        adminBtn.onclick = () => {
-                            currentUser = "admin";
-                            localStorage.setItem("geotracker_username", "admin");
-                            errorMsg.classList.add('hidden');
-                            // Si la nube está activa, levantamos escuchas en tiempo real para el admin
-                            startCloudRealtimeListeners();
-                            navigateTo('admin');
-                        };
+            const userObj = { username: username, registeredAt: Date.now() };
+            store.put(userObj);
 
-                        formLogin.onsubmit = (e) => {
-                            e.preventDefault();
-                            const username = usernameInput.value.trim();
-                            const password = document.getElementById('login-password').value;
+            tx.oncomplete = () => {
+                currentUser = username;
+                localStorage.setItem("geotracker_username", username);
+                syncAllLocalLogsToCloud();
+                navigateTo('tracker');
+            };
+        }
 
-                            if (username.toLowerCase() === 'admin') {
-                                if (password === 'admin') {
-                                    currentUser = "admin";
-                                    localStorage.setItem("geotracker_username", "admin");
-                                    errorMsg.classList.add('hidden');
-                                    startCloudRealtimeListeners();
-                                    navigateTo('admin');
-                                } else {
-                                    errorMsg.classList.remove('hidden');
-                                }
-                            } else {
-                                registerOrLoginUser(username);
-                            }
-                        };
-                    }
+        // --- CIERRE DE SESIÓN SEGURO ---
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            try {
+                stopTracking();
+            } catch (e) {
+                console.warn("Fallo al detener rastreo:", e);
+            }
 
-                    function registerOrLoginUser(username) {
-                        if (!db) return;
+            currentUser = null;
+            localStorage.removeItem("geotracker_username");
+            isFirstPointOfSession = true;
+            selectedAdminUser = null;
 
-                        const tx = db.transaction([STORE_USERS], "readwrite");
-                        const store = tx.objectStore(STORE_USERS);
+            // Apagar suscripciones en tiempo real
+            if (unsubscribeUsers) { unsubscribeUsers(); unsubscribeUsers = null; }
+            if (unsubscribeLocations) { unsubscribeLocations(); unsubscribeLocations = null; }
 
-                        const userObj = { username: username, registeredAt: Date.now() };
-                        store.put(userObj);
+            try {
+                if (userMap) {
+                    userMap.remove();
+                    userMap = null;
+                }
+            } catch (e) {
+                userMap = null;
+            }
 
-                        tx.oncomplete = () => {
-                            currentUser = username;
-                            localStorage.setItem("geotracker_username", username);
-                            syncAllLocalLogsToCloud();
-                            navigateTo('tracker');
-                        };
-                    }
+            try {
+                if (adminMap) {
+                    adminMap.remove();
+                    adminMap = null;
+                }
+            } catch (e) {
+                adminMap = null;
+            }
 
-                    // --- CIERRE DE SESIÓN SEGURO ---
-                    document.getElementById('btn-logout').addEventListener('click', () => {
-                        try {
-                            stopTracking();
-                        } catch (e) {
-                            console.warn("Fallo al detener rastreo:", e);
+            const usernameInput = document.getElementById('login-username');
+            if (usernameInput) usernameInput.value = "";
+
+            const passwordInput = document.getElementById('login-password');
+            if (passwordInput) passwordInput.value = "";
+
+            const passContainer = document.getElementById('admin-pass-container');
+            if (passContainer) passContainer.classList.add('hidden');
+
+            const errorMsg = document.getElementById('login-error-msg');
+            if (errorMsg) errorMsg.classList.add('hidden');
+
+            navigateTo('auth');
+        });
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🗺️ SECCIÓN 5: MAPAS LEAFLET (User & Admin)
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        function initUserMap() {
+            if (userMap) return;
+
+            userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(userMap);
+
+            userPolyline = L.polyline([], {
+                color: '#10b981', // emerald-500
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '6, 6'
+            }).addTo(userMap);
+        }
+
+        // --- INICIALIZAR MAPA DE ADMIN ---
+        function initAdminMap() {
+            if (adminMap) return;
+
+            adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(adminMap);
+
+            adminPolyline = L.polyline([], {
+                color: '#38bdf8', // sky-400
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '6, 6'
+            }).addTo(adminMap);
+        }
+
+        // --- MANEJO DE GEOLOCALIZACIÓN (RASTREO) ---
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnClear = document.getElementById('btn-clear');
+        const currentStatusDiv = document.getElementById('current-status');
+
+        if (btnToggle) btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
+
+        if (btnClear) {
+            btnClear.addEventListener('click', () => {
+                const msg = "Se eliminará tu historial de ubicaciones de tu vista.\n\nNota: Los administradores mantendrán una copia segura para auditorías en la nube.";
+                if (confirm(msg)) {
+                    softClearUserHistory();
+                }
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 📍 SECCIÓN 6: TRACKING GPS Y WAKE LOCK
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        function startTracking() {
+            if (!("geolocation" in navigator)) {
+                alert("Tu dispositivo o navegador no soporta geolocalización.");
+                return;
+            }
+
+            isFirstPointOfSession = true;
+            isTrackingActive = true;
+
+            // Solicitar Wake Lock para mantener la app activa con pantalla apagada
+            requestWakeLock();
+
+            watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+
+            if (btnToggle) {
+                btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
+                btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
+
+                const spanEl = btnToggle.querySelector('span');
+                if (spanEl) spanEl.textContent = "Detener Rastreo";
+
+                const iconEl = btnToggle.querySelector('i');
+                if (iconEl) iconEl.setAttribute('data-lucide', 'square');
+            }
+
+            if (currentStatusDiv) {
+                currentStatusDiv.classList.remove('hidden');
+            }
+
+            // Mostrar notificación de que la app debe estar abierta
+            showTrackingNotification();
+
+            lucide.createIcons();
+        }
+
+        function stopTracking() {
+            isTrackingActive = false;
+
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // Liberar Wake Lock
+            releaseWakeLock();
+
+            if (btnToggle) {
+                btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
+                btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
+
+                const spanEl = btnToggle.querySelector('span');
+                if (spanEl) spanEl.textContent = "Iniciar Rastreo";
+
+                const iconEl = btnToggle.querySelector('i');
+                if (iconEl) iconEl.setAttribute('data-lucide', 'play');
+            }
+            if (currentStatusDiv) {
+                currentStatusDiv.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        // --- WAKE LOCK API PARA MANTENER EL RASTREO ACTIVO ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('✅ Wake Lock activado - La app permanecerá activa');
+
+                    wakeLock.addEventListener('release', () => {
+                        console.log('⚠️ Wake Lock liberado');
+                        // Si el tracking está activo, reintentar obtener el lock
+                        if (isTrackingActive) {
+                            setTimeout(() => requestWakeLock(), 1000);
                         }
-
-                        currentUser = null;
-                        localStorage.removeItem("geotracker_username");
-                        isFirstPointOfSession = true;
-                        selectedAdminUser = null;
-
-                        // Apagar suscripciones en tiempo real
-                        if (unsubscribeUsers) { unsubscribeUsers(); unsubscribeUsers = null; }
-                        if (unsubscribeLocations) { unsubscribeLocations(); unsubscribeLocations = null; }
-
-                        try {
-                            if (userMap) {
-                                userMap.remove();
-                                userMap = null;
-                            }
-                        } catch (e) {
-                            userMap = null;
-                        }
-
-                        try {
-                            if (adminMap) {
-                                adminMap.remove();
-                                adminMap = null;
-                            }
-                        } catch (e) {
-                            adminMap = null;
-                        }
-
-                        const usernameInput = document.getElementById('login-username');
-                        if (usernameInput) usernameInput.value = "";
-
-                        const passwordInput = document.getElementById('login-password');
-                        if (passwordInput) passwordInput.value = "";
-
-                        const passContainer = document.getElementById('admin-pass-container');
-                        if (passContainer) passContainer.classList.add('hidden');
-
-                        const errorMsg = document.getElementById('login-error-msg');
-                        if (errorMsg) errorMsg.classList.add('hidden');
-
-                        navigateTo('auth');
                     });
+                } catch (err) {
+                    console.warn('⚠️ No se pudo activar Wake Lock:', err);
+                    // En iOS y algunos navegadores, Wake Lock puede no estar disponible
+                    // pero la app seguirá funcionando en primer plano
+                }
+            } else {
+                console.warn('⚠️ Wake Lock API no disponible en este navegador');
+            }
+        }
 
-                    // --- INICIALIZADORES DE MAPAS (LEAFLET) ---
-                    function initUserMap() {
-                        if (userMap) return;
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release()
+                    .then(() => {
+                        wakeLock = null;
+                        console.log('✅ Wake Lock liberado correctamente');
+                    })
+                    .catch(err => {
+                        console.warn('⚠️ Error al liberar Wake Lock:', err);
+                    });
+            }
+        }
 
-                        userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
-                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                            attribution: '© OpenStreetMap, © CARTO',
-                            maxZoom: 19
-                        }).addTo(userMap);
-
-                        userPolyline = L.polyline([], {
-                            color: '#10b981', // emerald-500
-                            weight: 4,
-                            opacity: 0.8,
-                            dashArray: '6, 6'
-                        }).addTo(userMap);
-                    }
-
-                    // --- INICIALIZAR MAPA DE ADMIN ---
-                    function initAdminMap() {
-                        if (adminMap) return;
-
-                        adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
-                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                            attribution: '© OpenStreetMap, © CARTO',
-                            maxZoom: 19
-                        }).addTo(adminMap);
-
-                        adminPolyline = L.polyline([], {
-                            color: '#38bdf8', // sky-400
-                            weight: 4,
-                            opacity: 0.8,
-                            dashArray: '6, 6'
-                        }).addTo(adminMap);
-                    }
-
-                    // --- MANEJO DE GEOLOCALIZACIÓN (RASTREO) ---
-                    const btnToggle = document.getElementById('btn-toggle');
-                    const btnClear = document.getElementById('btn-clear');
-                    const currentStatusDiv = document.getElementById('current-status');
-
-                    if (btnToggle) btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
-
-                    if (btnClear) {
-                        btnClear.addEventListener('click', () => {
-                            const msg = "Se eliminará tu historial de ubicaciones de tu vista.\n\nNota: Los administradores mantendrán una copia segura para auditorías en la nube.";
-                            if (confirm(msg)) {
-                                softClearUserHistory();
-                            }
-                        });
-                    }
-
-                    function startTracking() {
-                        if (!("geolocation" in navigator)) {
-                            alert("Tu dispositivo o navegador no soporta geolocalización.");
-                            return;
-                        }
-
-                        isFirstPointOfSession = true;
-                        isTrackingActive = true;
-
-                        // Solicitar Wake Lock para mantener la app activa con pantalla apagada
-                        requestWakeLock();
-
-                        watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        });
-
-                        if (btnToggle) {
-                            btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
-                            btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
-
-                            const spanEl = btnToggle.querySelector('span');
-                            if (spanEl) spanEl.textContent = "Detener Rastreo";
-
-                            const iconEl = btnToggle.querySelector('i');
-                            if (iconEl) iconEl.setAttribute('data-lucide', 'square');
-                        }
-
-                        if (currentStatusDiv) {
-                            currentStatusDiv.classList.remove('hidden');
-                        }
-
-                        // Mostrar notificación de que la app debe estar abierta
-                        showTrackingNotification();
-
-                        lucide.createIcons();
-                    }
-
-                    function stopTracking() {
-                        isTrackingActive = false;
-
-                        if (watchId !== null) {
-                            navigator.geolocation.clearWatch(watchId);
-                            watchId = null;
-                        }
-
-                        // Liberar Wake Lock
-                        releaseWakeLock();
-
-                        if (btnToggle) {
-                            btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
-                            btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
-
-                            const spanEl = btnToggle.querySelector('span');
-                            if (spanEl) spanEl.textContent = "Iniciar Rastreo";
-
-                            const iconEl = btnToggle.querySelector('i');
-                            if (iconEl) iconEl.setAttribute('data-lucide', 'play');
-                        }
-                        if (currentStatusDiv) {
-                            currentStatusDiv.classList.add('hidden');
-                        }
-                        lucide.createIcons();
-                    }
-
-                    // --- WAKE LOCK API PARA MANTENER EL RASTREO ACTIVO ---
-                    async function requestWakeLock() {
-                        if ('wakeLock' in navigator) {
-                            try {
-                                wakeLock = await navigator.wakeLock.request('screen');
-                                console.log('✅ Wake Lock activado - La app permanecerá activa');
-
-                                wakeLock.addEventListener('release', () => {
-                                    console.log('⚠️ Wake Lock liberado');
-                                    // Si el tracking está activo, reintentar obtener el lock
-                                    if (isTrackingActive) {
-                                        setTimeout(() => requestWakeLock(), 1000);
-                                    }
-                                });
-                            } catch (err) {
-                                console.warn('⚠️ No se pudo activar Wake Lock:', err);
-                                // En iOS y algunos navegadores, Wake Lock puede no estar disponible
-                                // pero la app seguirá funcionando en primer plano
-                            }
-                        } else {
-                            console.warn('⚠️ Wake Lock API no disponible en este navegador');
-                        }
-                    }
-
-                    function releaseWakeLock() {
-                        if (wakeLock !== null) {
-                            wakeLock.release()
-                                .then(() => {
-                                    wakeLock = null;
-                                    console.log('✅ Wake Lock liberado correctamente');
-                                })
-                                .catch(err => {
-                                    console.warn('⚠️ Error al liberar Wake Lock:', err);
-                                });
-                        }
-                    }
-
-                    function showTrackingNotification() {
-                        // Crear notificación temporal
-                        const notification = document.createElement('div');
-                        notification.id = 'tracking-notification';
-                        notification.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-500/90 backdrop-blur-sm text-slate-950 px-4 py-3 rounded-xl shadow-2xl z-50 max-w-sm text-center text-sm font-semibold animate-fade-in';
-                        notification.innerHTML = `
+        function showTrackingNotification() {
+            // Crear notificación temporal
+            const notification = document.createElement('div');
+            notification.id = 'tracking-notification';
+            notification.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-500/90 backdrop-blur-sm text-slate-950 px-4 py-3 rounded-xl shadow-2xl z-50 max-w-sm text-center text-sm font-semibold animate-fade-in';
+            notification.innerHTML = `
                 <div class="flex items-center gap-2 justify-center">
                     <i data-lucide="radio" class="w-4 h-4"></i>
                     <span>Rastreo activo en segundo plano</span>
                 </div>
                 <p class="text-xs mt-1 font-normal opacity-90">Mantén la app abierta para mejor precisión</p>
             `;
-                        document.body.appendChild(notification);
-                        lucide.createIcons();
+            document.body.appendChild(notification);
+            lucide.createIcons();
 
-                        // Ocultar después de 5 segundos
-                        setTimeout(() => {
-                            notification.style.opacity = '0';
-                            notification.style.transition = 'opacity 0.5s';
-                            setTimeout(() => notification.remove(), 500);
-                        }, 5000);
-                    }
+            // Ocultar después de 5 segundos
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s';
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        }
 
-                    // --- RECONEXIÓN AUTOMÁTICA AL VOLVER A PRIMER PLANO ---
-                    document.addEventListener('visibilitychange', () => {
-                        if (!document.hidden && isTrackingActive) {
-                            console.log('🔄 App visible de nuevo - verificando rastreo...');
+        // --- RECONEXIÓN AUTOMÁTICA AL VOLVER A PRIMER PLANO ---
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isTrackingActive) {
+                console.log('🔄 App visible de nuevo - verificando rastreo...');
 
-                            // Reactivar Wake Lock si se perdió
-                            if (!wakeLock) {
-                                requestWakeLock();
-                            }
+                // Reactivar Wake Lock si se perdió
+                if (!wakeLock) {
+                    requestWakeLock();
+                }
 
-                            // Verificar que la geolocalización sigue activa
-                            if (!watchId) {
-                                console.log('🔄 Reiniciando geolocalización...');
-                                watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
-                                    enableHighAccuracy: true,
-                                    timeout: 10000,
-                                    maximumAge: 0
-                                });
-                            }
-                        } else if (document.hidden && isTrackingActive) {
-                            console.log('⏸️ App en segundo plano - Wake Lock mantiene rastreo activo');
-                        }
+                // Verificar que la geolocalización sigue activa
+                if (!watchId) {
+                    console.log('🔄 Reiniciando geolocalización...');
+                    watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
                     });
+                }
+            } else if (document.hidden && isTrackingActive) {
+                console.log('⏸️ App en segundo plano - Wake Lock mantiene rastreo activo');
+            }
+        });
 
-                    function handleGeoSuccess(position) {
-                        const { latitude, longitude, accuracy } = position.coords;
-                        const timestamp = position.timestamp;
-                        const timeString = new Date(timestamp).toLocaleTimeString();
+        function handleGeoSuccess(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp;
+            const timeString = new Date(timestamp).toLocaleTimeString();
 
-                        console.log(`📍 Posición recibida: Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}, Precisión: ±${Math.round(accuracy)}m`);
+            console.log(`📍 Posición recibida: Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}, Precisión: ±${Math.round(accuracy)}m`);
 
-                        const coordsEl = document.getElementById('geo-coords');
-                        if (coordsEl) {
-                            coordsEl.textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
-                        }
+            const coordsEl = document.getElementById('geo-coords');
+            if (coordsEl) {
+                coordsEl.textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
+            }
 
-                        const timeEl = document.getElementById('geo-time');
-                        if (timeEl) {
-                            timeEl.textContent = timeString;
-                        }
+            const timeEl = document.getElementById('geo-time');
+            if (timeEl) {
+                timeEl.textContent = timeString;
+            }
 
-                        if (isFirstPointOfSession && userMap) {
-                            userMap.setView([latitude, longitude], 16);
-                            isFirstPointOfSession = false;
-                        }
+            if (isFirstPointOfSession && userMap) {
+                userMap.setView([latitude, longitude], 16);
+                isFirstPointOfSession = false;
+            }
 
-                        // Filtrado de posiciones: más permisivo en desktop (WiFi/IP menos preciso)
-                        // Móvil con GPS: < 50m típicamente
-                        // Desktop WiFi: 50-500m típicamente
-                        // Desktop IP: 1000-5000m típicamente
-                        if (accuracy > 5000) {
-                            console.warn(`⚠️ Posición descartada: precisión demasiado baja (${Math.round(accuracy)}m)`);
-                            return;
-                        }
+            // Filtrado de posiciones: más permisivo en desktop (WiFi/IP menos preciso)
+            // Móvil con GPS: < 50m típicamente
+            // Desktop WiFi: 50-500m típicamente
+            // Desktop IP: 1000-5000m típicamente
+            if (accuracy > 5000) {
+                console.warn(`⚠️ Posición descartada: precisión demasiado baja (${Math.round(accuracy)}m)`);
+                return;
+            }
 
-                        console.log(`✅ Guardando posición (precisión aceptable: ${Math.round(accuracy)}m)`);
-                        saveLocationToDb({
-                            timestamp,
-                            username: currentUser,
-                            lat: latitude,
-                            lon: longitude,
-                            accuracy,
-                            dateStr: new Date(timestamp).toLocaleDateString(),
-                            timeStr: timeString,
-                            userCleared: false
-                        });
-                    }
+            console.log(`✅ Guardando posición (precisión aceptable: ${Math.round(accuracy)}m)`);
+            saveLocationToDb({
+                timestamp,
+                username: currentUser,
+                lat: latitude,
+                lon: longitude,
+                accuracy,
+                dateStr: new Date(timestamp).toLocaleDateString(),
+                timeStr: timeString,
+                userCleared: false
+            });
+        }
 
-                    function handleGeoError(error) {
-                        const coordsEl = document.getElementById('geo-coords');
-                        if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
-                    }
+        function handleGeoError(error) {
+            const coordsEl = document.getElementById('geo-coords');
+            if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
+        }
 
-                    // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
-                    function saveLocationToDb(entry) {
-                        if (!db) {
-                            console.error('❌ No se puede guardar: IndexedDB no disponible');
-                            return;
-                        }
+        // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
+        function saveLocationToDb(entry) {
+            if (!db) {
+                console.error('❌ No se puede guardar: IndexedDB no disponible');
+                return;
+            }
 
-                        console.log('💾 Guardando en IndexedDB:', entry);
+            console.log('💾 Guardando en IndexedDB:', entry);
 
-                        // 1. Guardar siempre en local (IndexedDB)
-                        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
-                        tx.objectStore(STORE_LOCATIONS).put(entry);
-                        tx.oncomplete = () => {
-                            console.log('✅ Guardado exitoso en IndexedDB');
-                            renderUserLogs();
+            // 1. Guardar siempre en local (IndexedDB)
+            const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+            tx.objectStore(STORE_LOCATIONS).put(entry);
+            tx.oncomplete = () => {
+                console.log('✅ Guardado exitoso en IndexedDB');
+                renderUserLogs();
 
-                            // 2. Si hay conexión en la nube, sincronizar asíncronamente
-                            if (isCloudActive && cloudUser) {
-                                syncLocationToCloud(entry);
-                            }
-                        };
-                        tx.onerror = (e) => {
-                            console.error('❌ Error al guardar en IndexedDB:', e);
-                        };
-                    }
+                // 2. Si hay conexión en la nube, sincronizar asíncronamente
+                if (isCloudActive && cloudUser) {
+                    syncLocationToCloud(entry);
+                }
+            };
+            tx.onerror = (e) => {
+                console.error('❌ Error al guardar en IndexedDB:', e);
+            };
+        }
 
-                    // Guardado y Actualización asíncrona en Firestore (Cumpliendo REGLA 1 de rutas estrictas)
-                    async function syncLocationToCloud(entry) {
-                        if (!isCloudActive || !cloudUser) return;
-                        try {
-                            // Registrar perfil del usuario en el censo de la nube
-                            const userRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'users', entry.username);
-                            await setDoc(userRef, { username: entry.username, lastActive: Date.now() }, { merge: true });
+        // Guardado y Actualización asíncrona en Firestore (Cumpliendo REGLA 1 de rutas estrictas)
+        async function syncLocationToCloud(entry) {
+            if (!isCloudActive || !cloudUser) return;
+            try {
+                // Registrar perfil del usuario en el censo de la nube
+                const userRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'users', entry.username);
+                await setDoc(userRef, { username: entry.username, lastActive: Date.now() }, { merge: true });
 
-                            // Registrar posición usando un ID único compuesto de username y timestamp para evitar duplicados
-                            const locRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'locations', `${entry.username}_${entry.timestamp}`);
-                            await setDoc(locRef, entry);
-                        } catch (e) {
-                            console.error("Fallo al subir coordenada a la nube:", e);
-                            handleFirebaseError(e);
-                        }
-                    }
+                // Registrar posición usando un ID único compuesto de username y timestamp para evitar duplicados
+                const locRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'locations', `${entry.username}_${entry.timestamp}`);
+                await setDoc(locRef, entry);
+            } catch (e) {
+                console.error("Fallo al subir coordenada a la nube:", e);
+                handleFirebaseError(e);
+            }
+        }
 
-                    // Sincronizar logs acumulados en local al iniciar sesión o recuperar red
-                    function syncAllLocalLogsToCloud() {
-                        if (!isCloudActive || !cloudUser || !currentUser || currentUser === "admin") return;
+        // Sincronizar logs acumulados en local al iniciar sesión o recuperar red
+        function syncAllLocalLogsToCloud() {
+            if (!isCloudActive || !cloudUser || !currentUser || currentUser === "admin") return;
 
-                        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-                        const store = tx.objectStore(STORE_LOCATIONS);
-                        const index = store.index("username");
-                        const request = index.getAll(IDBKeyRange.only(currentUser));
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
 
-                        request.onsuccess = () => {
-                            const logs = request.result;
-                            logs.forEach(log => {
-                                syncLocationToCloud(log);
-                            });
-                        };
-                    }
+            request.onsuccess = () => {
+                const logs = request.result;
+                logs.forEach(log => {
+                    syncLocationToCloud(log);
+                });
+            };
+        }
 
-                    function renderUserLogs() {
-                        if (!db || !currentUser) return;
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 👤 SECCIÓN 7: PANEL DE USUARIO (Logs, Exportar/Importar)
+        // ════════════════════════════════════════════════════════════════════════════════
 
-                        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-                        const store = tx.objectStore(STORE_LOCATIONS);
-                        const index = store.index("username");
-                        const request = index.getAll(IDBKeyRange.only(currentUser));
+        function renderUserLogs() {
+            if (!db || !currentUser) return;
 
-                        request.onsuccess = () => {
-                            const allLogs = request.result;
-                            const visibleLogs = allLogs.filter(log => !log.userCleared);
-                            visibleLogs.sort((a, b) => b.timestamp - a.timestamp);
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
 
-                            document.getElementById('log-count').textContent = `${visibleLogs.length} registros`;
+            request.onsuccess = () => {
+                const allLogs = request.result;
+                const visibleLogs = allLogs.filter(log => !log.userCleared);
+                visibleLogs.sort((a, b) => b.timestamp - a.timestamp);
 
-                            const container = document.getElementById('logs-container');
-                            const emptyState = document.getElementById('empty-state');
-                            container.querySelectorAll('.log-item').forEach(el => el.remove());
+                document.getElementById('log-count').textContent = `${visibleLogs.length} registros`;
 
-                            if (visibleLogs.length === 0) {
-                                emptyState.classList.remove('hidden');
-                                updateUserMapRender([]);
-                                return;
-                            }
+                const container = document.getElementById('logs-container');
+                const emptyState = document.getElementById('empty-state');
+                container.querySelectorAll('.log-item').forEach(el => el.remove());
 
-                            emptyState.classList.add('hidden');
-                            updateUserMapRender(visibleLogs);
+                if (visibleLogs.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    updateUserMapRender([]);
+                    return;
+                }
 
-                            visibleLogs.forEach((item) => {
-                                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-                                const div = document.createElement('div');
-                                div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
-                                div.innerHTML = `
+                emptyState.classList.add('hidden');
+                updateUserMapRender(visibleLogs);
+
+                visibleLogs.forEach((item) => {
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                    const div = document.createElement('div');
+                    div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
+                    div.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="p-2 bg-slate-800 rounded-lg text-slate-400">
                             <i data-lucide="navigation" class="w-4 h-4"></i>
@@ -1254,60 +1352,60 @@
                         </a>
                     </div>
                 `;
-                                container.appendChild(div);
-                            });
-                            lucide.createIcons();
-                        };
+                    container.appendChild(div);
+                });
+                lucide.createIcons();
+            };
+        }
+
+        function softClearUserHistory() {
+            if (!db || !currentUser) return;
+
+            const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
+
+            request.onsuccess = () => {
+                const records = request.result;
+                records.forEach(item => {
+                    item.userCleared = true;
+                    store.put(item);
+
+                    // Reflejar borrado lógico también en la nube
+                    if (isCloudActive && cloudUser) {
+                        syncLocationToCloud(item);
                     }
+                });
+            };
 
-                    function softClearUserHistory() {
-                        if (!db || !currentUser) return;
+            tx.oncomplete = () => {
+                isFirstPointOfSession = true;
+                renderUserLogs();
+            };
+        }
 
-                        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
-                        const store = tx.objectStore(STORE_LOCATIONS);
-                        const index = store.index("username");
-                        const request = index.getAll(IDBKeyRange.only(currentUser));
+        function updateUserMapRender(list) {
+            if (!userMap) return;
 
-                        request.onsuccess = () => {
-                            const records = request.result;
-                            records.forEach(item => {
-                                item.userCleared = true;
-                                store.put(item);
+            userMarkers.forEach(m => userMap.removeLayer(m));
+            userMarkers = [];
 
-                                // Reflejar borrado lógico también en la nube
-                                if (isCloudActive && cloudUser) {
-                                    syncLocationToCloud(item);
-                                }
-                            });
-                        };
+            if (list.length === 0) {
+                userPolyline.setLatLngs([]);
+                return;
+            }
 
-                        tx.oncomplete = () => {
-                            isFirstPointOfSession = true;
-                            renderUserLogs();
-                        };
-                    }
+            const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+            const routeCoords = sorted.map(item => [item.lat, item.lon]);
 
-                    function updateUserMapRender(list) {
-                        if (!userMap) return;
+            sorted.forEach((item, index) => {
+                const latlng = [item.lat, item.lon];
+                const isLast = index === sorted.length - 1;
 
-                        userMarkers.forEach(m => userMap.removeLayer(m));
-                        userMarkers = [];
-
-                        if (list.length === 0) {
-                            userPolyline.setLatLngs([]);
-                            return;
-                        }
-
-                        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
-                        const routeCoords = sorted.map(item => [item.lat, item.lon]);
-
-                        sorted.forEach((item, index) => {
-                            const latlng = [item.lat, item.lon];
-                            const isLast = index === sorted.length - 1;
-
-                            const markerIcon = L.divIcon({
-                                className: '',
-                                html: `<div style="
+                const markerIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="
                     width: ${isLast ? '18px' : '12px'};
                     height: ${isLast ? '18px' : '12px'};
                     background: ${isLast ? '#10b981' : '#34d399'};
@@ -1316,13 +1414,13 @@
                     box-shadow: 0 0 ${isLast ? '10px #10b981' : '4px #10b98155'};
                     margin: auto;
                 "></div>`,
-                                iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
-                                iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
-                            });
+                    iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
+                    iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
+                });
 
-                            const marker = L.marker(latlng, { icon: markerIcon })
-                                .addTo(userMap)
-                                .bindPopup(`
+                const marker = L.marker(latlng, { icon: markerIcon })
+                    .addTo(userMap)
+                    .bindPopup(`
                     <div style="font-size:12px; line-height:1.6">
                         <strong style="color:#10b981">${item.timeStr}</strong><br>
                         <span style="font-family:monospace">Lat: ${item.lat.toFixed(5)}</span><br>
@@ -1330,87 +1428,91 @@
                         <span style="color:#94a3b8">Precisión: ±${Math.round(item.accuracy)}m</span>
                     </div>
                 `);
-                            userMarkers.push(marker);
-                        });
+                userMarkers.push(marker);
+            });
 
-                        userPolyline.setLatLngs(routeCoords);
+            userPolyline.setLatLngs(routeCoords);
 
-                        if (routeCoords.length > 1) {
-                            userMap.fitBounds(userPolyline.getBounds(), { padding: [40, 40] });
-                        } else if (routeCoords.length === 1) {
-                            userMap.setView(routeCoords[0], 15);
-                        }
+            if (routeCoords.length > 1) {
+                userMap.fitBounds(userPolyline.getBounds(), { padding: [40, 40] });
+            } else if (routeCoords.length === 1) {
+                userMap.setView(routeCoords[0], 15);
+            }
 
-                        setTimeout(() => userMap.invalidateSize(), 50);
-                    }
+            setTimeout(() => userMap.invalidateSize(), 50);
+        }
 
-                    // =======================================================
-                    // --- LÓGICA DE CONTROL DE ADMINISTRADOR ---
-                    // =======================================================
-                    let selectedAdminUser = null;
+        // =======================================================
+        // --- LÓGICA DE CONTROL DE ADMINISTRADOR ---
+        // =======================================================
+        let selectedAdminUser = null;
 
-                    // Escuchadores de bases de datos en tiempo real (REGLA 2: Consultas simples sin índices complejos)
-                    function startCloudRealtimeListeners() {
-                        if (!isCloudActive || !cloudUser || currentUser !== "admin") return;
+        // Escuchadores de bases de datos en tiempo real (REGLA 2: Consultas simples sin índices complejos)
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 👑 SECCIÓN 8: PANEL DE ADMINISTRADOR Y FIREBASE SYNC
+        // ════════════════════════════════════════════════════════════════════════════════
 
-                        // 1. Escuchar censo de usuarios (Cumple con callbacks obligatorios para errores de Firestore)
-                        const usersCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'users');
-                        unsubscribeUsers = onSnapshot(usersCol, (snapshot) => {
-                            const usersList = [];
-                            snapshot.forEach(doc => {
-                                usersList.push(doc.data());
-                            });
-                            renderAdminUsersList(usersList);
-                        }, (err) => {
-                            console.error("Fallo escuchador de usuarios en la nube:", err);
-                            handleFirebaseError(err);
-                        });
+        function startCloudRealtimeListeners() {
+            if (!isCloudActive || !cloudUser || currentUser !== "admin") return;
 
-                        // 2. Escuchar todas las ubicaciones globales (Con callback obligatorio de error)
-                        const locsCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'locations');
-                        unsubscribeLocations = onSnapshot(locsCol, (snapshot) => {
-                            cloudLocations = [];
-                            snapshot.forEach(doc => {
-                                cloudLocations.push(doc.data());
-                            });
+            // 1. Escuchar censo de usuarios (Cumple con callbacks obligatorios para errores de Firestore)
+            const usersCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'users');
+            unsubscribeUsers = onSnapshot(usersCol, (snapshot) => {
+                const usersList = [];
+                snapshot.forEach(doc => {
+                    usersList.push(doc.data());
+                });
+                renderAdminUsersList(usersList);
+            }, (err) => {
+                console.error("Fallo escuchador de usuarios en la nube:", err);
+                handleFirebaseError(err);
+            });
 
-                            // Forzar repintado si el admin ya estaba visualizando a un usuario en su PC
-                            if (selectedAdminUser) {
-                                renderAdminSelectedUserData(selectedAdminUser);
-                            }
+            // 2. Escuchar todas las ubicaciones globales (Con callback obligatorio de error)
+            const locsCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'locations');
+            unsubscribeLocations = onSnapshot(locsCol, (snapshot) => {
+                cloudLocations = [];
+                snapshot.forEach(doc => {
+                    cloudLocations.push(doc.data());
+                });
 
-                            // Actualizar mapa global si está visible
-                            const globalMapTab = document.getElementById('admin-tab-global-map');
-                            if (globalMapTab && !globalMapTab.classList.contains('hidden') && globalMap) {
-                                refreshGlobalMap();
-                            }
-                        }, (err) => {
-                            console.error("Fallo escuchador de rutas en la nube:", err);
-                            handleFirebaseError(err);
-                        });
-                    }
+                // Forzar repintado si el admin ya estaba visualizando a un usuario en su PC
+                if (selectedAdminUser) {
+                    renderAdminSelectedUserData(selectedAdminUser);
+                }
 
-                    function renderAdminUsersList(usersList) {
-                        const listContainer = document.getElementById('admin-user-list');
-                        if (!listContainer) return;
-                        listContainer.innerHTML = "";
+                // Actualizar mapa global si está visible
+                const globalMapTab = document.getElementById('admin-tab-global-map');
+                if (globalMapTab && !globalMapTab.classList.contains('hidden') && globalMap) {
+                    refreshGlobalMap();
+                }
+            }, (err) => {
+                console.error("Fallo escuchador de rutas en la nube:", err);
+                handleFirebaseError(err);
+            });
+        }
 
-                        const cleanList = usersList.filter(u => u.username !== 'admin');
+        function renderAdminUsersList(usersList) {
+            const listContainer = document.getElementById('admin-user-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = "";
 
-                        if (cleanList.length === 0) {
-                            listContainer.innerHTML = `
+            const cleanList = usersList.filter(u => u.username !== 'admin');
+
+            if (cleanList.length === 0) {
+                listContainer.innerHTML = `
                 <p class="text-xs text-slate-500 text-center py-4">No hay usuarios sincronizados en la nube.</p>
             `;
-                            return;
-                        }
+                return;
+            }
 
-                        cleanList.forEach(user => {
-                            const btn = document.createElement('button');
-                            btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${selectedAdminUser === user.username
-                                ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
-                                : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                                }`;
-                            btn.innerHTML = `
+            cleanList.forEach(user => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${selectedAdminUser === user.username
+                    ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
+                    : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }`;
+                btn.innerHTML = `
                 <div class="flex items-center gap-2">
                     <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
                     <span class="font-medium text-sm">${user.username}</span>
@@ -1420,100 +1522,100 @@
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
                 </div>
             `;
-                            btn.onclick = () => selectAdminUser(user.username);
-                            listContainer.appendChild(btn);
-                        });
-                        lucide.createIcons();
-                    }
+                btn.onclick = () => selectAdminUser(user.username);
+                listContainer.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
 
-                    // Cargar menú lateral de usuarios offline o fallback
-                    function loadAdminUserDashboard() {
-                        if (isCloudActive && cloudUser) {
-                            // El admin ya usa escuchas asíncronas de la nube, no requiere consulta manual
-                            return;
-                        }
+        // Cargar menú lateral de usuarios offline o fallback
+        function loadAdminUserDashboard() {
+            if (isCloudActive && cloudUser) {
+                // El admin ya usa escuchas asíncronas de la nube, no requiere consulta manual
+                return;
+            }
 
-                        if (!db) return;
-                        const tx = db.transaction([STORE_USERS], "readonly");
-                        const store = tx.objectStore(STORE_USERS);
-                        const req = store.getAll();
+            if (!db) return;
+            const tx = db.transaction([STORE_USERS], "readonly");
+            const store = tx.objectStore(STORE_USERS);
+            const req = store.getAll();
 
-                        req.onsuccess = () => {
-                            const usersList = req.result.filter(u => u.username !== 'admin');
-                            renderAdminUsersList(usersList);
-                        };
-                    }
+            req.onsuccess = () => {
+                const usersList = req.result.filter(u => u.username !== 'admin');
+                renderAdminUsersList(usersList);
+            };
+        }
 
-                    function selectAdminUser(username) {
-                        selectedAdminUser = username;
+        function selectAdminUser(username) {
+            selectedAdminUser = username;
 
-                        // Recargar sidebar para activar resaltados visuales
-                        if (isCloudActive && cloudUser) {
-                            // Al estar en la nube se actualiza asíncronamente
-                        } else {
-                            loadAdminUserDashboard();
-                        }
+            // Recargar sidebar para activar resaltados visuales
+            if (isCloudActive && cloudUser) {
+                // Al estar en la nube se actualiza asíncronamente
+            } else {
+                loadAdminUserDashboard();
+            }
 
-                        document.getElementById('admin-no-selection').classList.add('hidden');
-                        const detailsContainer = document.getElementById('admin-user-details');
-                        detailsContainer.classList.remove('hidden');
+            document.getElementById('admin-no-selection').classList.add('hidden');
+            const detailsContainer = document.getElementById('admin-user-details');
+            detailsContainer.classList.remove('hidden');
 
-                        document.getElementById('admin-selected-username').textContent = username;
+            document.getElementById('admin-selected-username').textContent = username;
 
-                        renderAdminSelectedUserData(username);
-                    }
+            renderAdminSelectedUserData(username);
+        }
 
-                    function renderAdminSelectedUserData(username) {
-                        // RUTA 1: Si la nube está activa, filtramos en memoria los pings en tiempo real (REGLA 2)
-                        if (isCloudActive && cloudUser) {
-                            const allLogs = cloudLocations.filter(loc => loc.username === username);
-                            processAndRenderSelectedUserLogs(allLogs);
-                            return;
-                        }
+        function renderAdminSelectedUserData(username) {
+            // RUTA 1: Si la nube está activa, filtramos en memoria los pings en tiempo real (REGLA 2)
+            if (isCloudActive && cloudUser) {
+                const allLogs = cloudLocations.filter(loc => loc.username === username);
+                processAndRenderSelectedUserLogs(allLogs);
+                return;
+            }
 
-                        // RUTA 2: Fallback local offline (IndexedDB)
-                        if (!db) return;
-                        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-                        const store = tx.objectStore(STORE_LOCATIONS);
-                        const index = store.index("username");
-                        const request = index.getAll(IDBKeyRange.only(username));
+            // RUTA 2: Fallback local offline (IndexedDB)
+            if (!db) return;
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(username));
 
-                        request.onsuccess = () => {
-                            const allLogs = request.result;
-                            processAndRenderSelectedUserLogs(allLogs);
-                        };
-                    }
+            request.onsuccess = () => {
+                const allLogs = request.result;
+                processAndRenderSelectedUserLogs(allLogs);
+            };
+        }
 
-                    function processAndRenderSelectedUserLogs(allLogs) {
-                        allLogs.sort((a, b) => b.timestamp - a.timestamp);
+        function processAndRenderSelectedUserLogs(allLogs) {
+            allLogs.sort((a, b) => b.timestamp - a.timestamp);
 
-                        document.getElementById('admin-selected-count').textContent = `${allLogs.length} Registros`;
+            document.getElementById('admin-selected-count').textContent = `${allLogs.length} Registros`;
 
-                        const listContainer = document.getElementById('admin-selected-logs');
-                        listContainer.innerHTML = "";
+            const listContainer = document.getElementById('admin-selected-logs');
+            listContainer.innerHTML = "";
 
-                        if (allLogs.length === 0) {
-                            listContainer.innerHTML = `
+            if (allLogs.length === 0) {
+                listContainer.innerHTML = `
                 <div class="text-center py-8 bg-slate-800/20 border border-slate-800/80 border-dashed rounded-xl">
                     <p class="text-xs text-slate-500">Este usuario no tiene coordenadas registradas todavía.</p>
                 </div>
             `;
-                            updateAdminMapRender([]);
-                            return;
-                        }
+                updateAdminMapRender([]);
+                return;
+            }
 
-                        updateAdminMapRender(allLogs);
+            updateAdminMapRender(allLogs);
 
-                        allLogs.forEach(item => {
-                            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-                            const div = document.createElement('div');
+            allLogs.forEach(item => {
+                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                const div = document.createElement('div');
 
-                            const badgeHtml = item.userCleared
-                                ? `<span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">BORRADO POR USUARIO</span>`
-                                : `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVO</span>`;
+                const badgeHtml = item.userCleared
+                    ? `<span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">BORRADO POR USUARIO</span>`
+                    : `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVO</span>`;
 
-                            div.className = "p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex justify-between items-center";
-                            div.innerHTML = `
+                div.className = "p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex justify-between items-center";
+                div.innerHTML = `
                 <div class="flex items-center gap-2">
                     <div class="p-1.5 bg-slate-800 rounded text-slate-400">
                         <i data-lucide="navigation-2" class="w-3.5 h-3.5"></i>
@@ -1532,36 +1634,36 @@
                     <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-[10px] text-sky-400 hover:underline mt-1 block">Ver en Maps →</a>
                 </div>
             `;
-                            listContainer.appendChild(div);
-                        });
-                        lucide.createIcons();
-                    }
+                listContainer.appendChild(div);
+            });
+            lucide.createIcons();
+        }
 
-                    function updateAdminMapRender(list) {
-                        if (!adminMap) return;
+        function updateAdminMapRender(list) {
+            if (!adminMap) return;
 
-                        adminMarkers.forEach(m => adminMap.removeLayer(m));
-                        adminMarkers = [];
+            adminMarkers.forEach(m => adminMap.removeLayer(m));
+            adminMarkers = [];
 
-                        if (list.length === 0) {
-                            adminPolyline.setLatLngs([]);
-                            return;
-                        }
+            if (list.length === 0) {
+                adminPolyline.setLatLngs([]);
+                return;
+            }
 
-                        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
-                        const routeCoords = sorted.map(item => [item.lat, item.lon]);
+            const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+            const routeCoords = sorted.map(item => [item.lat, item.lon]);
 
-                        sorted.forEach((item, index) => {
-                            const latlng = [item.lat, item.lon];
-                            const isLast = index === sorted.length - 1;
+            sorted.forEach((item, index) => {
+                const latlng = [item.lat, item.lon];
+                const isLast = index === sorted.length - 1;
 
-                            let pinColor = '#38bdf8';
-                            if (item.userCleared) pinColor = '#f87171';
-                            else if (isLast) pinColor = '#34d399';
+                let pinColor = '#38bdf8';
+                if (item.userCleared) pinColor = '#f87171';
+                else if (isLast) pinColor = '#34d399';
 
-                            const markerIcon = L.divIcon({
-                                className: '',
-                                html: `<div style="
+                const markerIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="
                     width: ${isLast ? '16px' : '10px'};
                     height: ${isLast ? '16px' : '10px'};
                     background: ${pinColor};
@@ -1570,13 +1672,13 @@
                     box-shadow: 0 0 8px ${pinColor};
                     margin: auto;
                 "></div>`,
-                                iconSize: [isLast ? 16 : 10, isLast ? 16 : 10],
-                                iconAnchor: [isLast ? 8 : 5, isLast ? 8 : 5],
-                            });
+                    iconSize: [isLast ? 16 : 10, isLast ? 16 : 10],
+                    iconAnchor: [isLast ? 8 : 5, isLast ? 8 : 5],
+                });
 
-                            const marker = L.marker(latlng, { icon: markerIcon })
-                                .addTo(adminMap)
-                                .bindPopup(`
+                const marker = L.marker(latlng, { icon: markerIcon })
+                    .addTo(adminMap)
+                    .bindPopup(`
                     <div style="font-size:11px; line-height:1.5">
                         <strong style="color:${pinColor}">${item.timeStr} (${item.dateStr})</strong><br>
                         Lat: ${item.lat.toFixed(5)}<br>
@@ -1584,496 +1686,512 @@
                         Estado: <span style="font-weight:bold">${item.userCleared ? 'Borrado por usuario' : 'Activo'}</span>
                     </div>
                 `);
-                            adminMarkers.push(marker);
-                        });
+                adminMarkers.push(marker);
+            });
 
-                        adminPolyline.setLatLngs(routeCoords);
+            adminPolyline.setLatLngs(routeCoords);
 
-                        if (routeCoords.length > 1) {
-                            adminMap.fitBounds(adminPolyline.getBounds(), { padding: [40, 40] });
-                        } else if (routeCoords.length === 1) {
-                            adminMap.setView(routeCoords[0], 15);
-                        }
+            if (routeCoords.length > 1) {
+                adminMap.fitBounds(adminPolyline.getBounds(), { padding: [40, 40] });
+            } else if (routeCoords.length === 1) {
+                adminMap.setView(routeCoords[0], 15);
+            }
 
-                        setTimeout(() => adminMap.invalidateSize(), 50);
+            setTimeout(() => adminMap.invalidateSize(), 50);
+        }
+
+        // --- EXPORTAR DATOS DEL USUARIO ---
+        const btnExport = document.getElementById('btn-export');
+        if (btnExport) {
+            btnExport.addEventListener('click', () => {
+                if (!db || !currentUser) return;
+
+                const tx = db.transaction([STORE_LOCATIONS], "readonly");
+                const store = tx.objectStore(STORE_LOCATIONS);
+                const index = store.index("username");
+                const request = index.getAll(IDBKeyRange.only(currentUser));
+
+                request.onsuccess = () => {
+                    const logs = request.result;
+                    if (logs.length === 0) {
+                        alert("No tienes datos de ubicación guardados para exportar.");
+                        return;
                     }
 
-                    // --- EXPORTAR DATOS DEL USUARIO ---
-                    const btnExport = document.getElementById('btn-export');
-                    if (btnExport) {
-                        btnExport.addEventListener('click', () => {
-                            if (!db || !currentUser) return;
-
-                            const tx = db.transaction([STORE_LOCATIONS], "readonly");
-                            const store = tx.objectStore(STORE_LOCATIONS);
-                            const index = store.index("username");
-                            const request = index.getAll(IDBKeyRange.only(currentUser));
-
-                            request.onsuccess = () => {
-                                const logs = request.result;
-                                if (logs.length === 0) {
-                                    alert("No tienes datos de ubicación guardados para exportar.");
-                                    return;
-                                }
-
-                                const exportData = {
-                                    version: "GeoHistory_v3.2",
-                                    username: currentUser,
-                                    exportedAt: Date.now(),
-                                    locations: logs
-                                };
-
-                                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-                                const downloadAnchor = document.createElement('a');
-                                downloadAnchor.setAttribute("href", dataStr);
-                                const dateStr = new Date().toISOString().slice(0, 10);
-                                downloadAnchor.setAttribute("download", `geotracker_${currentUser}_${dateStr}.json`);
-                                document.body.appendChild(downloadAnchor);
-                                downloadAnchor.click();
-                                downloadAnchor.remove();
-                            };
-                        });
-                    }
-
-                    // --- IMPORTAR DATOS EN ADMINISTRACIÓN ---
-                    const importFileInput = document.getElementById('admin-import-file');
-                    if (importFileInput) {
-                        importFileInput.addEventListener('change', (e) => {
-                            const file = e.target.files[0];
-                            if (!file) return;
-
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                                try {
-                                    const importedData = JSON.parse(event.target.result);
-
-                                    if (!importedData.version || !importedData.username || !Array.isArray(importedData.locations)) {
-                                        alert("El archivo JSON seleccionado no tiene un formato compatible con GeoHistory.");
-                                        return;
-                                    }
-
-                                    const importedUsername = importedData.username;
-
-                                    // 1. Guardar/Actualizar el usuario en el store de usuarios
-                                    const txUser = db.transaction([STORE_USERS], "readwrite");
-                                    const storeUser = txUser.objectStore(STORE_USERS);
-                                    storeUser.put({ username: importedUsername, registeredAt: importedData.exportedAt || Date.now() });
-
-                                    txUser.oncomplete = () => {
-                                        // 2. Guardar las coordenadas importadas en el store de ubicaciones
-                                        const txLoc = db.transaction([STORE_LOCATIONS], "readwrite");
-                                        const storeLoc = txLoc.objectStore(STORE_LOCATIONS);
-
-                                        importedData.locations.forEach(loc => {
-                                            loc.username = importedUsername;
-                                            storeLoc.put(loc);
-
-                                            // Sincronizar también con la nube para que se guarde de forma permanente
-                                            if (isCloudActive && cloudUser) {
-                                                syncLocationToCloud(loc);
-                                            }
-                                        });
-
-                                        txLoc.oncomplete = () => {
-                                            alert(`¡Éxito! Se han importado correctamente ${importedData.locations.length} ubicaciones del usuario "${importedUsername}".`);
-                                            importFileInput.value = "";
-                                            loadAdminUserDashboard();
-                                            if (selectedAdminUser === importedUsername) {
-                                                selectAdminUser(importedUsername);
-                                            }
-                                        };
-                                    };
-
-                                } catch (err) {
-                                    console.error(err);
-                                    alert("Error al procesar el archivo. Asegúrate de que es un archivo .json válido exportado por esta aplicación.");
-                                }
-                            };
-                            reader.readAsText(file);
-                        });
-                    }
-
-                    // --- MANEJO DE CONFIGURACIÓN DEL MODAL DE LA NUBE (GLOBAL WINDOW SCOPE) ---
-                    window.openCloudModal = () => {
-                        const modal = document.getElementById('modal-cloud-config');
-                        modal.classList.remove('hidden');
-                        const input = document.getElementById('cloud-json-input');
-                        const saved = localStorage.getItem("geotracker_cloud_config");
-                        if (saved) {
-                            try {
-                                input.value = JSON.stringify(JSON.parse(saved), null, 2);
-                            } catch (e) {
-                                input.value = saved;
-                            }
-                        } else {
-                            input.value = JSON.stringify(defaultFirebaseConfig, null, 2); // Ofrecer tu config por defecto para facilitar restaurarla
-                        }
+                    const exportData = {
+                        version: "GeoHistory_v3.2",
+                        username: currentUser,
+                        exportedAt: Date.now(),
+                        locations: logs
                     };
 
-                    window.closeCloudModal = () => {
-                        document.getElementById('modal-cloud-config').classList.add('hidden');
-                    };
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    downloadAnchor.setAttribute("download", `geotracker_${currentUser}_${dateStr}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                };
+            });
+        }
 
-                    window.saveCloudConfig = () => {
-                        const value = document.getElementById('cloud-json-input').value.trim();
-                        if (!value) {
-                            alert("Por favor, introduce una configuración válida.");
+        // --- IMPORTAR DATOS EN ADMINISTRACIÓN ---
+        const importFileInput = document.getElementById('admin-import-file');
+        if (importFileInput) {
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+
+                        if (!importedData.version || !importedData.username || !Array.isArray(importedData.locations)) {
+                            alert("El archivo JSON seleccionado no tiene un formato compatible con GeoHistory.");
                             return;
                         }
-                        try {
-                            const parsed = JSON.parse(value);
-                            localStorage.setItem("geotracker_cloud_config", JSON.stringify(parsed));
-                            alert("¡Base de datos vinculada con éxito! La aplicación se recargará para aplicar los cambios.");
-                            location.reload();
-                        } catch (e) {
-                            alert("Error: El formato de configuración debe ser un JSON válido.");
-                        }
-                    };
 
-                    window.clearCloudConfig = () => {
-                        localStorage.removeItem("geotracker_cloud_config");
-                        alert("Configuración de nube eliminada. Volviendo al modo local...");
-                        location.reload();
-                    };
+                        const importedUsername = importedData.username;
 
-                    // --- FUNCIONES DE PESTAÑAS DE ADMIN ---
-                    window.switchAdminTab = (tabName) => {
-                        // Actualizar botones
-                        document.querySelectorAll('.admin-tab').forEach(btn => {
-                            btn.classList.remove('bg-slate-800', 'text-emerald-400', 'border', 'border-emerald-500/30');
-                            btn.classList.add('text-slate-400', 'hover:bg-slate-800/50');
-                        });
-                        document.getElementById(`tab-${tabName}`).classList.remove('text-slate-400', 'hover:bg-slate-800/50');
-                        document.getElementById(`tab-${tabName}`).classList.add('bg-slate-800', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                        // 1. Guardar/Actualizar el usuario en el store de usuarios
+                        const txUser = db.transaction([STORE_USERS], "readwrite");
+                        const storeUser = txUser.objectStore(STORE_USERS);
+                        storeUser.put({ username: importedUsername, registeredAt: importedData.exportedAt || Date.now() });
 
-                        // Actualizar contenido
-                        document.querySelectorAll('.admin-tab-content').forEach(content => {
-                            content.classList.add('hidden');
-                        });
-                        document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
+                        txUser.oncomplete = () => {
+                            // 2. Guardar las coordenadas importadas en el store de ubicaciones
+                            const txLoc = db.transaction([STORE_LOCATIONS], "readwrite");
+                            const storeLoc = txLoc.objectStore(STORE_LOCATIONS);
 
-                        // Inicializar mapa si es necesario
-                        if (tabName === 'global-map') {
-                            if (!globalMap) {
-                                initGlobalMap();
-                            }
-                            setTimeout(() => {
-                                if (globalMap) {
-                                    globalMap.invalidateSize();
-                                    refreshGlobalMap();
+                            importedData.locations.forEach(loc => {
+                                loc.username = importedUsername;
+                                storeLoc.put(loc);
+
+                                // Sincronizar también con la nube para que se guarde de forma permanente
+                                if (isCloudActive && cloudUser) {
+                                    syncLocationToCloud(loc);
                                 }
-                            }, 100);
-                        }
-                        if (tabName === 'crossings') {
-                            renderCrossings();
-                        }
-
-                        lucide.createIcons();
-                    };
-
-                    // --- MAPA GLOBAL DE RUTAS ---
-                    function initGlobalMap() {
-                        if (globalMap) return;
-
-                        globalMap = L.map('map-global').setView([40.416775, -3.703790], 13);
-                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                            attribution: '© OpenStreetMap, © CARTO',
-                            maxZoom: 19
-                        }).addTo(globalMap);
-
-                        console.log('✅ Mapa global inicializado');
-                    }
-
-                    window.refreshGlobalMap = async () => {
-                        if (!globalMap || !db) return;
-
-                        console.log('🔄 Actualizando mapa global...');
-
-                        // Limpiar polylines existentes
-                        Object.values(userPolylines).forEach(polyline => {
-                            if (polyline) globalMap.removeLayer(polyline);
-                        });
-                        userPolylines = {};
-                        userColors = {};
-
-                        // Obtener todos los usuarios
-                        const tx = db.transaction([STORE_USERS], "readonly");
-                        const usersReq = tx.objectStore(STORE_USERS).getAll();
-
-                        usersReq.onsuccess = () => {
-                            const users = usersReq.result.filter(u => u.username !== 'admin');
-                            console.log(`📊 ${users.length} usuarios encontrados`);
-
-                            // Asignar colores
-                            users.forEach((user, index) => {
-                                userColors[user.username] = COLORS[index % COLORS.length];
                             });
 
-                            // Cargar rutas de cada usuario
-                            users.forEach((user, index) => {
-                                loadUserRoute(user.username, index === users.length - 1);
-                            });
-
-                            // Actualizar leyenda
-                            renderLegend(users);
-                        };
-                    };
-
-                    function loadUserRoute(username, isLast) {
-                        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-                        const store = tx.objectStore(STORE_LOCATIONS);
-                        const index = store.index("username");
-                        const req = index.getAll(IDBKeyRange.only(username));
-
-                        req.onsuccess = () => {
-                            const locations = req.result.filter(loc => !loc.userCleared);
-                            if (locations.length === 0) {
-                                console.log(`⚠️ ${username}: Sin ubicaciones`);
-                                return;
-                            }
-
-                            console.log(`📍 ${username}: ${locations.length} ubicaciones`);
-
-                            // Ordenar por timestamp
-                            locations.sort((a, b) => a.timestamp - b.timestamp);
-
-                            // Crear polyline
-                            const coords = locations.map(loc => [loc.lat, loc.lon]);
-                            const color = userColors[username];
-
-                            const polyline = L.polyline(coords, {
-                                color: color,
-                                weight: 3,
-                                opacity: 0.8
-                            }).addTo(globalMap);
-
-                            polyline.bindPopup(`<strong>${username}</strong><br>${locations.length} puntos`);
-
-                            userPolylines[username] = polyline;
-
-                            // Si es el último, ajustar vista del mapa
-                            if (isLast) {
-                                const allCoords = Object.values(userPolylines).flatMap(p => p.getLatLngs());
-                                if (allCoords.length > 0) {
-                                    globalMap.fitBounds(L.latLngBounds(allCoords));
+                            txLoc.oncomplete = () => {
+                                alert(`¡Éxito! Se han importado correctamente ${importedData.locations.length} ubicaciones del usuario "${importedUsername}".`);
+                                importFileInput.value = "";
+                                loadAdminUserDashboard();
+                                if (selectedAdminUser === importedUsername) {
+                                    selectAdminUser(importedUsername);
                                 }
-                            }
+                            };
                         };
+
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error al procesar el archivo. Asegúrate de que es un archivo .json válido exportado por esta aplicación.");
                     }
+                };
+                reader.readAsText(file);
+            });
+        }
 
-                    function renderLegend(users) {
-                        const legend = document.getElementById('legend-users');
-                        legend.innerHTML = '';
+        // --- MANEJO DE CONFIGURACIÓN DEL MODAL DE LA NUBE (GLOBAL WINDOW SCOPE) ---
+        // ════════════════════════════════════════════════════════════════════════════════
+        // ☁️ SECCIÓN 11: CONFIGURACIÓN DE NUBE (Modal Firebase)
+        // ════════════════════════════════════════════════════════════════════════════════
 
-                        users.forEach(user => {
-                            const color = userColors[user.username];
-                            const badge = document.createElement('div');
-                            badge.className = 'flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg text-xs';
-                            badge.innerHTML = `
+        window.openCloudModal = () => {
+            const modal = document.getElementById('modal-cloud-config');
+            modal.classList.remove('hidden');
+            const input = document.getElementById('cloud-json-input');
+            const saved = localStorage.getItem("geotracker_cloud_config");
+            if (saved) {
+                try {
+                    input.value = JSON.stringify(JSON.parse(saved), null, 2);
+                } catch (e) {
+                    input.value = saved;
+                }
+            } else {
+                input.value = JSON.stringify(defaultFirebaseConfig, null, 2); // Ofrecer tu config por defecto para facilitar restaurarla
+            }
+        };
+
+        window.closeCloudModal = () => {
+            document.getElementById('modal-cloud-config').classList.add('hidden');
+        };
+
+        window.saveCloudConfig = () => {
+            const value = document.getElementById('cloud-json-input').value.trim();
+            if (!value) {
+                alert("Por favor, introduce una configuración válida.");
+                return;
+            }
+            try {
+                const parsed = JSON.parse(value);
+                localStorage.setItem("geotracker_cloud_config", JSON.stringify(parsed));
+                alert("¡Base de datos vinculada con éxito! La aplicación se recargará para aplicar los cambios.");
+                location.reload();
+            } catch (e) {
+                alert("Error: El formato de configuración debe ser un JSON válido.");
+            }
+        };
+
+        window.clearCloudConfig = () => {
+            localStorage.removeItem("geotracker_cloud_config");
+            alert("Configuración de nube eliminada. Volviendo al modo local...");
+            location.reload();
+        };
+
+        // --- FUNCIONES DE PESTAÑAS DE ADMIN ---
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🌍 SECCIÓN 9: MAPA GLOBAL CON TODAS LAS RUTAS
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        // --- Gestión de pestañas del Admin ---
+        window.switchAdminTab = (tabName) => {
+            // Actualizar botones
+            document.querySelectorAll('.admin-tab').forEach(btn => {
+                btn.classList.remove('bg-slate-800', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                btn.classList.add('text-slate-400', 'hover:bg-slate-800/50');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('text-slate-400', 'hover:bg-slate-800/50');
+            document.getElementById(`tab-${tabName}`).classList.add('bg-slate-800', 'text-emerald-400', 'border', 'border-emerald-500/30');
+
+            // Actualizar contenido
+            document.querySelectorAll('.admin-tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
+
+            // Inicializar mapa si es necesario
+            if (tabName === 'global-map') {
+                if (!globalMap) {
+                    initGlobalMap();
+                }
+                setTimeout(() => {
+                    if (globalMap) {
+                        globalMap.invalidateSize();
+                        refreshGlobalMap();
+                    }
+                }, 100);
+            }
+            if (tabName === 'crossings') {
+                renderCrossings();
+            }
+
+            lucide.createIcons();
+        };
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🌍 SECCIÓN 9: MAPA GLOBAL CON TODAS LAS RUTAS
+        // ════════════════════════════════════════════════════════════════════════════════
+
+        function initGlobalMap() {
+            if (globalMap) return;
+
+            globalMap = L.map('map-global').setView([40.416775, -3.703790], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(globalMap);
+
+            console.log('✅ Mapa global inicializado');
+        }
+
+        window.refreshGlobalMap = async () => {
+            if (!globalMap || !db) return;
+
+            console.log('🔄 Actualizando mapa global...');
+
+            // Limpiar polylines existentes
+            Object.values(userPolylines).forEach(polyline => {
+                if (polyline) globalMap.removeLayer(polyline);
+            });
+            userPolylines = {};
+            userColors = {};
+
+            // Obtener todos los usuarios
+            const tx = db.transaction([STORE_USERS], "readonly");
+            const usersReq = tx.objectStore(STORE_USERS).getAll();
+
+            usersReq.onsuccess = () => {
+                const users = usersReq.result.filter(u => u.username !== 'admin');
+                console.log(`📊 ${users.length} usuarios encontrados`);
+
+                // Asignar colores
+                users.forEach((user, index) => {
+                    userColors[user.username] = COLORS[index % COLORS.length];
+                });
+
+                // Cargar rutas de cada usuario
+                users.forEach((user, index) => {
+                    loadUserRoute(user.username, index === users.length - 1);
+                });
+
+                // Actualizar leyenda
+                renderLegend(users);
+            };
+        };
+
+        function loadUserRoute(username, isLast) {
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const req = index.getAll(IDBKeyRange.only(username));
+
+            req.onsuccess = () => {
+                const locations = req.result.filter(loc => !loc.userCleared);
+                if (locations.length === 0) {
+                    console.log(`⚠️ ${username}: Sin ubicaciones`);
+                    return;
+                }
+
+                console.log(`📍 ${username}: ${locations.length} ubicaciones`);
+
+                // Ordenar por timestamp
+                locations.sort((a, b) => a.timestamp - b.timestamp);
+
+                // Crear polyline
+                const coords = locations.map(loc => [loc.lat, loc.lon]);
+                const color = userColors[username];
+
+                const polyline = L.polyline(coords, {
+                    color: color,
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(globalMap);
+
+                polyline.bindPopup(`<strong>${username}</strong><br>${locations.length} puntos`);
+
+                userPolylines[username] = polyline;
+
+                // Si es el último, ajustar vista del mapa
+                if (isLast) {
+                    const allCoords = Object.values(userPolylines).flatMap(p => p.getLatLngs());
+                    if (allCoords.length > 0) {
+                        globalMap.fitBounds(L.latLngBounds(allCoords));
+                    }
+                }
+            };
+        }
+
+        function renderLegend(users) {
+            const legend = document.getElementById('legend-users');
+            legend.innerHTML = '';
+
+            users.forEach(user => {
+                const color = userColors[user.username];
+                const badge = document.createElement('div');
+                badge.className = 'flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg text-xs';
+                badge.innerHTML = `
                     <span class="w-3 h-3 rounded-full" style="background-color: ${color}"></span>
                     <span class="text-slate-200 font-medium">${user.username}</span>
                 `;
-                            legend.appendChild(badge);
-                        });
-                    }
+                legend.appendChild(badge);
+            });
+        }
 
-                    // --- DETECCIÓN DE CRUCES ---
-                    window.detectAllCrossings = async () => {
-                        if (!db) return;
+        // --- DETECCIÓN DE CRUCES ---
+        // ════════════════════════════════════════════════════════════════════════════════
+        // ⚡ SECCIÓN 10: DETECCIÓN DE CRUCES ENTRE RUTAS
+        // ════════════════════════════════════════════════════════════════════════════════
 
-                        console.log('🔍 Detectando cruces de rutas...');
+        window.detectAllCrossings = async () => {
+            if (!db) return;
 
-                        // Obtener todos los usuarios
-                        const tx = db.transaction([STORE_USERS, STORE_LOCATIONS], "readonly");
-                        const usersReq = tx.objectStore(STORE_USERS).getAll();
+            console.log('🔍 Detectando cruces de rutas...');
 
-                        usersReq.onsuccess = async () => {
-                            const users = usersReq.result.filter(u => u.username !== 'admin');
+            // Obtener todos los usuarios
+            const tx = db.transaction([STORE_USERS, STORE_LOCATIONS], "readonly");
+            const usersReq = tx.objectStore(STORE_USERS).getAll();
 
-                            // Cargar rutas de todos los usuarios
-                            const userRoutes = {};
-                            const promises = users.map(user => {
-                                return new Promise((resolve) => {
-                                    const tx2 = db.transaction([STORE_LOCATIONS], "readonly");
-                                    const store = tx2.objectStore(STORE_LOCATIONS);
-                                    const index = store.index("username");
-                                    const req = index.getAll(IDBKeyRange.only(user.username));
+            usersReq.onsuccess = async () => {
+                const users = usersReq.result.filter(u => u.username !== 'admin');
 
-                                    req.onsuccess = () => {
-                                        userRoutes[user.username] = req.result
-                                            .filter(loc => !loc.userCleared)
-                                            .sort((a, b) => a.timestamp - b.timestamp);
-                                        resolve();
-                                    };
-                                });
-                            });
-
-                            await Promise.all(promises);
-
-                            console.log(`📊 Rutas cargadas:`, Object.keys(userRoutes).length);
-
-                            // Comparar cada par de usuarios
-                            const crossings = [];
-                            const usernames = Object.keys(userRoutes);
-
-                            for (let i = 0; i < usernames.length; i++) {
-                                for (let j = i + 1; j < usernames.length; j++) {
-                                    const user1 = usernames[i];
-                                    const user2 = usernames[j];
-                                    const route1 = userRoutes[user1];
-                                    const route2 = userRoutes[user2];
-
-                                    const detected = detectCrossings(route1, route2, user1, user2);
-                                    crossings.push(...detected);
-                                }
-                            }
-
-                            console.log(`✅ ${crossings.length} cruces detectados`);
-
-                            // Guardar cruces en la base de datos
-                            if (crossings.length > 0) {
-                                saveCrossings(crossings);
-                            }
-
-                            renderCrossings();
-                        };
-                    };
-
-                    function detectCrossings(route1, route2, user1, user2) {
-                        const crossings = [];
-                        const THRESHOLD_METERS = 20; // Distancia mínima para considerar cruce
-
-                        // Comparar cada segmento de route1 con cada punto de route2
-                        for (let i = 0; i < route1.length - 1; i++) {
-                            for (let j = 0; j < route2.length; j++) {
-                                const p1 = route1[i];
-                                const p2 = route1[i + 1];
-                                const point = route2[j];
-
-                                // Calcular distancia del punto al segmento
-                                const distance = distancePointToSegment(
-                                    { lat: point.lat, lon: point.lon },
-                                    { lat: p1.lat, lon: p1.lon },
-                                    { lat: p2.lat, lon: p2.lon }
-                                );
-
-                                if (distance <= THRESHOLD_METERS) {
-                                    crossings.push({
-                                        users: `${user1}-${user2}`,
-                                        user1: user1,
-                                        user2: user2,
-                                        lat: point.lat,
-                                        lon: point.lon,
-                                        distance: Math.round(distance),
-                                        timestamp: Date.now(),
-                                        dateStr: new Date().toLocaleDateString(),
-                                        timeStr: new Date().toLocaleTimeString()
-                                    });
-                                }
-                            }
-                        }
-
-                        return crossings;
-                    }
-
-                    function distancePointToSegment(point, segStart, segEnd) {
-                        // Convertir a coordenadas cartesianas aproximadas
-                        const px = point.lon;
-                        const py = point.lat;
-                        const ax = segStart.lon;
-                        const ay = segStart.lat;
-                        const bx = segEnd.lon;
-                        const by = segEnd.lat;
-
-                        // Vector del segmento
-                        const dx = bx - ax;
-                        const dy = by - ay;
-
-                        // Si es un punto (no un segmento)
-                        if (dx === 0 && dy === 0) {
-                            return haversineDistance(point.lat, point.lon, segStart.lat, segStart.lon);
-                        }
-
-                        // Proyección del punto en el segmento
-                        const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
-
-                        // Punto más cercano en el segmento
-                        const closestX = ax + t * dx;
-                        const closestY = ay + t * dy;
-
-                        // Distancia usando Haversine
-                        return haversineDistance(point.lat, point.lon, closestY, closestX);
-                    }
-
-                    function haversineDistance(lat1, lon1, lat2, lon2) {
-                        const R = 6371000; // Radio de la Tierra en metros
-                        const dLat = (lat2 - lat1) * Math.PI / 180;
-                        const dLon = (lon2 - lon1) * Math.PI / 180;
-                        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                        return R * c;
-                    }
-
-                    function saveCrossings(crossings) {
-                        const tx = db.transaction([STORE_CROSSINGS], "readwrite");
-                        const store = tx.objectStore(STORE_CROSSINGS);
-
-                        crossings.forEach(crossing => {
-                            store.add(crossing);
-
-                            // Sincronizar con Firebase si está activo
-                            if (isCloudActive && cloudUser && dbCloud) {
-                                const crossingRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'crossings', `${crossing.user1}_${crossing.user2}_${crossing.timestamp}`);
-                                setDoc(crossingRef, crossing).catch(e => {
-                                    console.warn('⚠️ Error al sincronizar cruce con Firebase:', e);
-                                });
-                            }
-                        });
-
-                        tx.oncomplete = () => {
-                            console.log(`✅ ${crossings.length} cruces guardados en IndexedDB`);
-                            if (isCloudActive && cloudUser) {
-                                console.log('☁️ Cruces sincronizados con Firebase');
-                            }
-                        };
-                    }
-
-                    function renderCrossings() {
-                        if (!db) return;
-
-                        const tx = db.transaction([STORE_CROSSINGS], "readonly");
-                        const req = tx.objectStore(STORE_CROSSINGS).getAll();
+                // Cargar rutas de todos los usuarios
+                const userRoutes = {};
+                const promises = users.map(user => {
+                    return new Promise((resolve) => {
+                        const tx2 = db.transaction([STORE_LOCATIONS], "readonly");
+                        const store = tx2.objectStore(STORE_LOCATIONS);
+                        const index = store.index("username");
+                        const req = index.getAll(IDBKeyRange.only(user.username));
 
                         req.onsuccess = () => {
-                            const crossings = req.result;
-                            const list = document.getElementById('crossings-list');
-                            const countBadge = document.getElementById('crossings-count');
+                            userRoutes[user.username] = req.result
+                                .filter(loc => !loc.userCleared)
+                                .sort((a, b) => a.timestamp - b.timestamp);
+                            resolve();
+                        };
+                    });
+                });
 
-                            countBadge.textContent = crossings.length;
+                await Promise.all(promises);
 
-                            if (crossings.length === 0) {
-                                list.innerHTML = `
+                console.log(`📊 Rutas cargadas:`, Object.keys(userRoutes).length);
+
+                // Comparar cada par de usuarios
+                const crossings = [];
+                const usernames = Object.keys(userRoutes);
+
+                for (let i = 0; i < usernames.length; i++) {
+                    for (let j = i + 1; j < usernames.length; j++) {
+                        const user1 = usernames[i];
+                        const user2 = usernames[j];
+                        const route1 = userRoutes[user1];
+                        const route2 = userRoutes[user2];
+
+                        const detected = detectCrossings(route1, route2, user1, user2);
+                        crossings.push(...detected);
+                    }
+                }
+
+                console.log(`✅ ${crossings.length} cruces detectados`);
+
+                // Guardar cruces en la base de datos
+                if (crossings.length > 0) {
+                    saveCrossings(crossings);
+                }
+
+                renderCrossings();
+            };
+        };
+
+        function detectCrossings(route1, route2, user1, user2) {
+            const crossings = [];
+            const THRESHOLD_METERS = 20; // Distancia mínima para considerar cruce
+
+            // Comparar cada segmento de route1 con cada punto de route2
+            for (let i = 0; i < route1.length - 1; i++) {
+                for (let j = 0; j < route2.length; j++) {
+                    const p1 = route1[i];
+                    const p2 = route1[i + 1];
+                    const point = route2[j];
+
+                    // Calcular distancia del punto al segmento
+                    const distance = distancePointToSegment(
+                        { lat: point.lat, lon: point.lon },
+                        { lat: p1.lat, lon: p1.lon },
+                        { lat: p2.lat, lon: p2.lon }
+                    );
+
+                    if (distance <= THRESHOLD_METERS) {
+                        crossings.push({
+                            users: `${user1}-${user2}`,
+                            user1: user1,
+                            user2: user2,
+                            lat: point.lat,
+                            lon: point.lon,
+                            distance: Math.round(distance),
+                            timestamp: Date.now(),
+                            dateStr: new Date().toLocaleDateString(),
+                            timeStr: new Date().toLocaleTimeString()
+                        });
+                    }
+                }
+            }
+
+            return crossings;
+        }
+
+        function distancePointToSegment(point, segStart, segEnd) {
+            // Convertir a coordenadas cartesianas aproximadas
+            const px = point.lon;
+            const py = point.lat;
+            const ax = segStart.lon;
+            const ay = segStart.lat;
+            const bx = segEnd.lon;
+            const by = segEnd.lat;
+
+            // Vector del segmento
+            const dx = bx - ax;
+            const dy = by - ay;
+
+            // Si es un punto (no un segmento)
+            if (dx === 0 && dy === 0) {
+                return haversineDistance(point.lat, point.lon, segStart.lat, segStart.lon);
+            }
+
+            // Proyección del punto en el segmento
+            const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+
+            // Punto más cercano en el segmento
+            const closestX = ax + t * dx;
+            const closestY = ay + t * dy;
+
+            // Distancia usando Haversine
+            return haversineDistance(point.lat, point.lon, closestY, closestX);
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Radio de la Tierra en metros
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function saveCrossings(crossings) {
+            const tx = db.transaction([STORE_CROSSINGS], "readwrite");
+            const store = tx.objectStore(STORE_CROSSINGS);
+
+            crossings.forEach(crossing => {
+                store.add(crossing);
+
+                // Sincronizar con Firebase si está activo
+                if (isCloudActive && cloudUser && dbCloud) {
+                    const crossingRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'crossings', `${crossing.user1}_${crossing.user2}_${crossing.timestamp}`);
+                    setDoc(crossingRef, crossing).catch(e => {
+                        console.warn('⚠️ Error al sincronizar cruce con Firebase:', e);
+                    });
+                }
+            });
+
+            tx.oncomplete = () => {
+                console.log(`✅ ${crossings.length} cruces guardados en IndexedDB`);
+                if (isCloudActive && cloudUser) {
+                    console.log('☁️ Cruces sincronizados con Firebase');
+                }
+            };
+        }
+
+        function renderCrossings() {
+            if (!db) return;
+
+            const tx = db.transaction([STORE_CROSSINGS], "readonly");
+            const req = tx.objectStore(STORE_CROSSINGS).getAll();
+
+            req.onsuccess = () => {
+                const crossings = req.result;
+                const list = document.getElementById('crossings-list');
+                const countBadge = document.getElementById('crossings-count');
+
+                countBadge.textContent = crossings.length;
+
+                if (crossings.length === 0) {
+                    list.innerHTML = `
                         <div class="text-center py-12 border border-dashed border-slate-800 rounded-xl">
                             <i data-lucide="git-merge" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
                             <p class="text-slate-400 font-medium">No hay cruces detectados</p>
                             <p class="text-xs text-slate-600 mt-1">Presiona "Detectar Cruces" para analizar las rutas</p>
                         </div>
                     `;
-                                lucide.createIcons();
-                                return;
-                            }
+                    lucide.createIcons();
+                    return;
+                }
 
-                            // Ordenar por timestamp descendente
-                            crossings.sort((a, b) => b.timestamp - a.timestamp);
+                // Ordenar por timestamp descendente
+                crossings.sort((a, b) => b.timestamp - a.timestamp);
 
-                            list.innerHTML = '';
-                            crossings.forEach((crossing) => {
-                                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${crossing.lat},${crossing.lon}`;
-                                const div = document.createElement('div');
-                                div.className = "bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 hover:border-emerald-500/30 transition";
-                                div.innerHTML = `
+                list.innerHTML = '';
+                crossings.forEach((crossing) => {
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${crossing.lat},${crossing.lon}`;
+                    const div = document.createElement('div');
+                    div.className = "bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 hover:border-emerald-500/30 transition";
+                    div.innerHTML = `
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center gap-2">
                                 <i data-lucide="git-merge" class="w-4 h-4 text-emerald-400"></i>
@@ -2093,38 +2211,42 @@
                         </div>
                         <p class="text-[10px] text-slate-600 mt-2">Distancia: ~${crossing.distance}m</p>
                     `;
-                                list.appendChild(div);
-                            });
+                    list.appendChild(div);
+                });
 
-                            lucide.createIcons();
-                        };
-                    }
+                lucide.createIcons();
+            };
+        }
 
-                    // Exportar variables de ciclo al scope global de Javascript
-                    window.selectAdminUser = selectAdminUser;
-                    window.startTracking = startTracking;
-                    window.stopTracking = stopTracking;
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 🛠️ SECCIÓN 12: UTILIDADES Y SERVICE WORKER
+        // ════════════════════════════════════════════════════════════════════════════════
 
-                    // Helper de estado de la conexión DB
-                    function updateDbStatus(text, badgeClass) {
-                        const dbStatusEl = document.getElementById('db-status');
-                        if (dbStatusEl) {
-                            dbStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
-                        }
-                    }
+        // Exportar funciones al scope global
+        window.selectAdminUser = selectAdminUser;
+        window.startTracking = startTracking;
+        window.stopTracking = stopTracking;
 
-                    // --- REGISTRO DE SERVICE WORKER PARA PWA ---
-                    if ('serviceWorker' in navigator) {
-                        window.addEventListener('load', () => {
-                            navigator.serviceWorker.register('/sw.js')
-                                .then((registration) => {
-                                    console.log('✅ Service Worker registrado:', registration.scope);
-                                })
-                                .catch((error) => {
-                                    console.warn('⚠️ Error al registrar Service Worker:', error);
-                                });
-                        });
-                    }
+        // Helper de estado de la conexión DB
+        function updateDbStatus(text, badgeClass) {
+            const dbStatusEl = document.getElementById('db-status');
+            if (dbStatusEl) {
+                dbStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
+            }
+        }
+
+        // --- REGISTRO DE SERVICE WORKER PARA PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.warn('⚠️ Error al registrar Service Worker:', error);
+                    });
+            });
+        }
     </script>
 </body>
 

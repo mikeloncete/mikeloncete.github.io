@@ -6,7 +6,17 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [3.2.0] - 2026-05-26
+### Añadido
+- Índice completo al inicio del código con navegación por secciones
+- Separadores visuales entre las 12 secciones principales del código
+- Comentarios descriptivos con emojis para fácil identificación
+- Estructura organizada: Config, DB, Navegación, Auth, Mapas, Tracking, Usuario, Admin, Mapa Global, Cruces, Nube, Utilidades
 
+### Modificado
+- Organización interna mejorada para mantenibilidad
+- Arquitectura de código documentada con líneas de referencia
+
+## [3.2.0] - 2026-05-26
 ### Añadido
 - Sistema de pestañas en panel de administración (Usuarios, Mapa Global, Cruces)
 - Mapa global que muestra rutas de todos los usuarios con colores únicos
