@@ -987,7 +987,7 @@
             if (userMap) return;
 
             userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap, © CARTO',
                 maxZoom: 19
             }).addTo(userMap);
@@ -1005,7 +1005,7 @@
             if (adminMap) return;
 
             adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap, © CARTO',
                 maxZoom: 19
             }).addTo(adminMap);
@@ -1520,12 +1520,12 @@
             cleanList.forEach(user => {
                 const btn = document.createElement('button');
                 btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${selectedAdminUser === user.username
-                    ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
-                    : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    ? 'bg-emerald-100 border-emerald-500 text-gray-900 shadow-sm'
+                    : 'bg-white border-gray-300 text-gray-800 hover:text-gray-900 hover:border-gray-400 hover:shadow-sm'
                     }`;
                 btn.innerHTML = `
                 <div class="flex items-center gap-2">
-                    <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
+                    <i data-lucide="user" class="w-4 h-4 text-emerald-600"></i>
                     <span class="font-medium text-sm">${user.username}</span>
                 </div>
                 <div class="flex items-center gap-1.5">
@@ -1901,7 +1901,7 @@
             if (globalMap) return;
 
             globalMap = L.map('map-global').setView([40.416775, -3.703790], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap, © CARTO',
                 maxZoom: 19
             }).addTo(globalMap);
