@@ -421,23 +421,24 @@
             <!-- TAB 3: CRUCES DETECTADOS -->
             <div id="admin-tab-crossings" class="admin-tab-content hidden">
                 <div class="space-y-4">
-                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6">
+                    <div class="bg-white border border-gray-300 rounded-2xl p-6 shadow-md">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                 <i data-lucide="git-merge" class="w-5 h-5 text-emerald-600"></i>
-                                Cruces de Rutas Detectados
+                                Encuentros y Cruces Detectados
                             </h3>
                             <button onclick="detectAllCrossings()"
-                                class="text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer font-semibold">
+                                class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer font-semibold shadow-md">
                                 <i data-lucide="scan" class="w-3.5 h-3.5"></i> Detectar Cruces
                             </button>
                         </div>
-                        <p class="text-xs text-slate-400 mb-4">Los cruces se detectan cuando las rutas de dos usuarios
-                            diferentes se intersectan en el mismo punto o área cercana.</p>
+                        <p class="text-xs text-gray-600 mb-4">Se detectan encuentros cuando dos usuarios estuvieron a
+                            menos de <strong>10 metros</strong> de distancia, ya sea por cruce de rutas o por
+                            proximidad.</p>
                         <div id="crossings-list" class="space-y-3 max-h-[60vh] overflow-y-auto">
                             <div class="text-center py-12 border border-dashed border-gray-300 rounded-xl bg-gray-50">
                                 <i data-lucide="git-merge" class="w-12 h-12 text-gray-400 mx-auto mb-3"></i>
-                                <p class="text-gray-600 font-medium">No hay cruces detectados</p>
+                                <p class="text-gray-600 font-medium">No hay encuentros detectados</p>
                                 <p class="text-xs text-gray-500 mt-1">Presiona "Detectar Cruces" para analizar las
                                     rutas</p>
                             </div>
@@ -2124,7 +2125,7 @@
                     }
                 }
 
-                console.log(`✅ ${crossings.length} cruces detectados`);
+                console.log(`✅ ${crossings.length} encuentros detectados (≤10m)`);
 
                 // Guardar cruces en la base de datos
                 if (crossings.length > 0) {
@@ -2137,38 +2138,77 @@
 
         function detectCrossings(route1, route2, user1, user2) {
             const crossings = [];
-            const THRESHOLD_METERS = 20; // Distancia mínima para considerar cruce
+            const THRESHOLD_METERS = 10; // Distancia mínima para considerar cruce o proximidad
+            const seenLocations = new Set(); // Evitar duplicados
 
-            // Comparar cada segmento de route1 con cada punto de route2
-            for (let i = 0; i < route1.length - 1; i++) {
+            // 1. Comparar cada punto de route1 con cada punto de route2 (proximidad punto a punto)
+            for (let i = 0; i < route1.length; i++) {
                 for (let j = 0; j < route2.length; j++) {
                     const p1 = route1[i];
-                    const p2 = route1[i + 1];
+                    const p2 = route2[j];
+
+                    const distance = haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+
+                    if (distance <= THRESHOLD_METERS) {
+                        // Crear clave única para esta ubicación aproximada
+                        const locationKey = `${p1.lat.toFixed(5)}-${p1.lon.toFixed(5)}`;
+
+                        if (!seenLocations.has(locationKey)) {
+                            seenLocations.add(locationKey);
+
+                            crossings.push({
+                                users: `${user1}-${user2}`,
+                                user1: user1,
+                                user2: user2,
+                                lat: p1.lat,
+                                lon: p1.lon,
+                                distance: Math.round(distance),
+                                timestamp: Date.now(),
+                                dateStr: new Date().toLocaleDateString(),
+                                timeStr: new Date().toLocaleTimeString()
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 2. Comparar cada segmento de route1 con cada punto de route2 (proximidad a trayectorias)
+            for (let i = 0; i < route1.length - 1; i++) {
+                for (let j = 0; j < route2.length; j++) {
+                    const segStart = route1[i];
+                    const segEnd = route1[i + 1];
                     const point = route2[j];
 
                     // Calcular distancia del punto al segmento
                     const distance = distancePointToSegment(
                         { lat: point.lat, lon: point.lon },
-                        { lat: p1.lat, lon: p1.lon },
-                        { lat: p2.lat, lon: p2.lon }
+                        { lat: segStart.lat, lon: segStart.lon },
+                        { lat: segEnd.lat, lon: segEnd.lon }
                     );
 
                     if (distance <= THRESHOLD_METERS) {
-                        crossings.push({
-                            users: `${user1}-${user2}`,
-                            user1: user1,
-                            user2: user2,
-                            lat: point.lat,
-                            lon: point.lon,
-                            distance: Math.round(distance),
-                            timestamp: Date.now(),
-                            dateStr: new Date().toLocaleDateString(),
-                            timeStr: new Date().toLocaleTimeString()
-                        });
+                        const locationKey = `${point.lat.toFixed(5)}-${point.lon.toFixed(5)}`;
+
+                        if (!seenLocations.has(locationKey)) {
+                            seenLocations.add(locationKey);
+
+                            crossings.push({
+                                users: `${user1}-${user2}`,
+                                user1: user1,
+                                user2: user2,
+                                lat: point.lat,
+                                lon: point.lon,
+                                distance: Math.round(distance),
+                                timestamp: Date.now(),
+                                dateStr: new Date().toLocaleDateString(),
+                                timeStr: new Date().toLocaleTimeString()
+                            });
+                        }
                     }
                 }
             }
 
+            console.log(`🔍 ${user1} ↔ ${user2}: ${crossings.length} encuentros detectados (≤10m)`);
             return crossings;
         }
 
@@ -2251,10 +2291,10 @@
 
                 if (crossings.length === 0) {
                     list.innerHTML = `
-                        <div class="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-                            <i data-lucide="git-merge" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
-                            <p class="text-slate-400 font-medium">No hay cruces detectados</p>
-                            <p class="text-xs text-slate-600 mt-1">Presiona "Detectar Cruces" para analizar las rutas</p>
+                        <div class="text-center py-12 border border-dashed border-gray-300 rounded-xl bg-gray-50">
+                            <i data-lucide="git-merge" class="w-12 h-12 text-gray-400 mx-auto mb-3"></i>
+                            <p class="text-gray-600 font-medium">No hay encuentros detectados</p>
+                            <p class="text-xs text-gray-500 mt-1">Presiona "Detectar Cruces" para analizar las rutas</p>
                         </div>
                     `;
                     lucide.createIcons();
@@ -2268,7 +2308,7 @@
                 crossings.forEach((crossing) => {
                     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${crossing.lat},${crossing.lon}`;
                     const div = document.createElement('div');
-                    div.className = "bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 hover:border-emerald-500/30 transition";
+                    div.className = "bg-white border border-gray-300 rounded-xl p-4 hover:border-emerald-400 hover:shadow-sm transition";
                     div.innerHTML = `
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center gap-2">
