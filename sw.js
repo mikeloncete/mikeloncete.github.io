@@ -40,16 +40,23 @@ self.addEventListener('activate', (event) => {
 
 // Fetch - estrategia Network First (red primero, caché como respaldo)
 self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                // Si la red funciona, actualizar caché y devolver respuesta
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                });
-                return response;
-            })
+  // Solo cachear peticiones GET (POST, PUT, DELETE no se pueden cachear)
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Si la red funciona, actualizar caché y devolver respuesta
+        // Solo cachear respuestas exitosas
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
             .catch(() => {
                 // Si la red falla, intentar servir desde caché
                 return caches.match(event.request).then((cachedResponse) => {
