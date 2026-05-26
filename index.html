@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoTracker Pro v3.1</title>
+    <title>GeoHistory</title>
     <!-- Tailwind CSS (Framework UI) -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Lucide Icons -->
@@ -17,840 +18,911 @@
             border-radius: 1rem;
             z-index: 0;
         }
-        .leaflet-top, .leaflet-bottom { z-index: 10; }
+
+        .leaflet-top,
+        .leaflet-bottom {
+            z-index: 10;
+        }
+
         /* Refinamiento estético del Popup de Leaflet adaptado al Dark Mode */
         .leaflet-popup-content-wrapper {
-            background-color: #1e293b !important; /* slate-800 */
-            color: #f1f5f9 !important; /* slate-100 */
+            background-color: #1e293b !important;
+            /* slate-800 */
+            color: #f1f5f9 !important;
+            /* slate-100 */
             border: 1px solid #334155;
             border-radius: 0.75rem !important;
         }
+
         .leaflet-popup-tip {
             background-color: #1e293b !important;
         }
     </style>
 </head>
+
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
 
-<!-- HEADER GLOBAL -->
-<div class="max-w-md mx-auto p-4 md:max-w-2xl lg:max-w-4xl">
-    <header class="flex justify-between items-center py-6 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-            <i data-lucide="map-pin" class="text-emerald-400 w-8 h-8"></i>
-            <h1 class="text-2xl font-bold tracking-tight">GeoTracker<span class="text-emerald-400">.io</span><span class="text-xs text-slate-500 font-normal ml-1">v3.1</span></h1>
-        </div>
-        <div class="flex items-center gap-3 select-none">
-                <span id="db-status" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 flex items-center gap-1.5">
+    <!-- HEADER GLOBAL -->
+    <div class="max-w-md mx-auto p-4 md:max-w-2xl lg:max-w-4xl">
+        <header class="flex justify-between items-center py-6 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+                <i data-lucide="map-pin" class="text-emerald-400 w-8 h-8"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Geo<span class="text-emerald-400">History</span></h1>
+            </div>
+            <div class="flex items-center gap-3 select-none">
+                <span id="db-status"
+                    class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400 flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Conectando...
                 </span>
-            <button onclick="openCloudModal()" id="btn-cloud-settings" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
-                <i data-lucide="settings" class="w-3.5 h-3.5"></i> Nube
-            </button>
-            <button id="btn-logout" class="hidden text-xs bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
-                <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
-            </button>
-        </div>
-    </header>
-
-    <!-- BANNER DE DIAGNÓSTICO DE ERRORES DE FIREBASE -->
-    <div id="cloud-global-error" class="hidden mt-4 p-4 bg-red-950/40 border border-red-800/80 rounded-2xl text-red-200 text-xs space-y-2">
-        <div class="flex items-start gap-2">
-            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400 shrink-0"></i>
-            <div>
-                <p class="font-bold">Error de conexión con la nube</p>
-                <p id="cloud-global-error-text" class="mt-1 text-red-300 leading-relaxed">Detectando problema...</p>
+                <button onclick="openCloudModal()" id="btn-cloud-settings"
+                    class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="settings" class="w-3.5 h-3.5"></i> Nube
+                </button>
+                <button id="btn-logout"
+                    class="hidden text-xs bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
+                </button>
             </div>
-        </div>
-        <div class="pt-2 border-t border-red-800/30 flex justify-between items-center text-[10px] text-red-400">
-            <span>Solución sugerida arriba</span>
-            <button onclick="document.getElementById('cloud-global-error').classList.add('hidden')" class="underline hover:text-red-300 cursor-pointer">Descartar</button>
-        </div>
-    </div>
+        </header>
 
-    <!-- ======================================================= -->
-    <!-- VISTA 1: AUTHENTICATION / LOGIN -->
-    <!-- ======================================================= -->
-    <div id="view-auth" class="mt-12 hidden">
-        <div class="max-w-sm mx-auto bg-slate-800/40 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm shadow-xl">
-            <div class="text-center mb-6">
-                <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <i data-lucide="user-check" class="text-emerald-400 w-8 h-8"></i>
-                </div>
-                <h2 class="text-xl font-bold text-slate-100">Acceso al Sistema</h2>
-                <p class="text-xs text-slate-400 mt-1">Introduce tu usuario o accede como Administrador</p>
-            </div>
-
-            <form id="form-login" class="space-y-4" onsubmit="event.preventDefault();">
+        <!-- BANNER DE DIAGNÓSTICO DE ERRORES DE FIREBASE -->
+        <div id="cloud-global-error"
+            class="hidden mt-4 p-4 bg-red-950/40 border border-red-800/80 rounded-2xl text-red-200 text-xs space-y-2">
+            <div class="flex items-start gap-2">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400 shrink-0"></i>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre de Usuario</label>
-                    <input type="text" id="login-username" required placeholder="Ej: Juan, Sofía..."
-                           class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+                    <p class="font-bold">Error de conexión con la nube</p>
+                    <p id="cloud-global-error-text" class="mt-1 text-red-300 leading-relaxed">Detectando problema...</p>
                 </div>
-
-                <!-- Input de Contraseña (Oculto, compatible con login legacy) -->
-                <div id="admin-pass-container" class="hidden transition-all duration-300">
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Contraseña Administrador</label>
-                    <input type="password" id="login-password" placeholder="Contraseña de admin"
-                           class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
-                </div>
-
-                <div id="login-error-msg" class="text-xs text-red-400 hidden flex items-center gap-1">
-                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
-                    <span>Acceso denegado. Inténtalo de nuevo.</span>
-                </div>
-
-                <button type="submit" id="btn-submit-auth" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/15">
-                    <span>Ingresar como Usuario</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
-
-                <div class="relative flex py-2 items-center">
-                    <div class="flex-grow border-t border-slate-800"></div>
-                    <span class="flex-shrink mx-4 text-slate-500 text-xs uppercase">o</span>
-                    <div class="flex-grow border-t border-slate-800"></div>
-                </div>
-
-                <!-- Botón de acceso directo para Admin sin contraseña -->
-                <button type="button" id="btn-admin-shortcut" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer border border-slate-700/60 shadow-md">
-                    <i data-lucide="shield" class="w-4.5 h-4.5 text-emerald-400"></i>
-                    <span>Acceder como Admin</span>
-                </button>
-            </form>
+            </div>
+            <div class="pt-2 border-t border-red-800/30 flex justify-between items-center text-[10px] text-red-400">
+                <span>Solución sugerida arriba</span>
+                <button onclick="document.getElementById('cloud-global-error').classList.add('hidden')"
+                    class="underline hover:text-red-300 cursor-pointer">Descartar</button>
+            </div>
         </div>
-    </div>
 
-    <!-- ======================================================= -->
-    <!-- VISTA 2: TRACKER DE USUARIO estándar -->
-    <!-- ======================================================= -->
-    <div id="view-tracker" class="mt-8 space-y-6 hidden">
-        <!-- Saludo de usuario -->
-        <div class="flex justify-between items-center bg-slate-800/20 border border-slate-800/40 rounded-xl px-4 py-3">
+        <!-- ======================================================= -->
+        <!-- VISTA 1: AUTHENTICATION / LOGIN -->
+        <!-- ======================================================= -->
+        <div id="view-auth" class="mt-12 hidden">
+            <div
+                class="max-w-sm mx-auto bg-slate-800/40 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm shadow-xl">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="user-check" class="text-emerald-400 w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-100">Acceso al Sistema</h2>
+                    <p class="text-xs text-slate-400 mt-1">Introduce tu usuario o accede como Administrador</p>
+                </div>
+
+                <form id="form-login" class="space-y-4" onsubmit="event.preventDefault();">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre
+                            de Usuario</label>
+                        <input type="text" id="login-username" required placeholder="Ej: Juan, Sofía..."
+                            class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <!-- Input de Contraseña (Oculto, compatible con login legacy) -->
+                    <div id="admin-pass-container" class="hidden transition-all duration-300">
+                        <label
+                            class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Contraseña
+                            Administrador</label>
+                        <input type="password" id="login-password" placeholder="Contraseña de admin"
+                            class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <div id="login-error-msg" class="text-xs text-red-400 hidden flex items-center gap-1">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                        <span>Acceso denegado. Inténtalo de nuevo.</span>
+                    </div>
+
+                    <button type="submit" id="btn-submit-auth"
+                        class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/15">
+                        <span>Ingresar como Usuario</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+
+                    <div class="relative flex py-2 items-center">
+                        <div class="flex-grow border-t border-slate-800"></div>
+                        <span class="flex-shrink mx-4 text-slate-500 text-xs uppercase">o</span>
+                        <div class="flex-grow border-t border-slate-800"></div>
+                    </div>
+
+                    <!-- Botón de acceso directo para Admin sin contraseña -->
+                    <button type="button" id="btn-admin-shortcut"
+                        class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer border border-slate-700/60 shadow-md">
+                        <i data-lucide="shield" class="w-4.5 h-4.5 text-emerald-400"></i>
+                        <span>Acceder como Admin</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- VISTA 2: TRACKER DE USUARIO estándar -->
+        <!-- ======================================================= -->
+        <div id="view-tracker" class="mt-8 space-y-6 hidden">
+            <!-- Saludo de usuario -->
+            <div
+                class="flex justify-between items-center bg-slate-800/20 border border-slate-800/40 rounded-xl px-4 py-3">
                 <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
                     <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
                     Sesión activa: <strong id="tracker-user-display" class="text-slate-100">---</strong>
                 </span>
-            <span class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Usuario</span>
-        </div>
-
-        <!-- Panel de Control -->
-        <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 class="text-lg font-semibold mb-4 text-slate-300">Control de Rastreo</h2>
-            <div class="flex flex-col sm:flex-row gap-4">
-                <button id="btn-toggle" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/10">
-                    <i data-lucide="play" class="w-5 h-5"></i>
-                    <span>Iniciar Rastreo</span>
-                </button>
-                <button id="btn-clear" class="border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer">
-                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    <span>Limpiar Mi Historial</span>
-                </button>
+                <span
+                    class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Usuario</span>
             </div>
 
-            <!-- Control Adicional: Exportación -->
-            <div class="mt-4 pt-4 border-t border-slate-700/50 flex flex-col sm:flex-row gap-4">
-                <button id="btn-export" class="flex-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer text-sm">
-                    <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
-                    <span>Exportar mi Ruta (.json)</span>
-                </button>
-            </div>
+            <!-- Panel de Control -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-4 text-slate-300">Control de Rastreo</h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button id="btn-toggle"
+                        class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/10">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        <span>Iniciar Rastreo</span>
+                    </button>
+                    <button id="btn-clear"
+                        class="border border-slate-700 hover:bg-slate-800 text-slate-400 hover:text-slate-200 py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <span>Limpiar Mi Historial</span>
+                    </button>
+                </div>
 
-            <!-- Estado Actual -->
-            <div id="current-status" class="mt-6 p-4 bg-slate-900/60 rounded-xl border border-slate-800/80 hidden">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Última posición capturada</p>
-                        <p id="geo-coords" class="text-sm font-mono mt-1 text-emerald-400">Buscando satélites...</p>
+                <!-- Control Adicional: Exportación -->
+                <div class="mt-4 pt-4 border-t border-slate-700/50 flex flex-col sm:flex-row gap-4">
+                    <button id="btn-export"
+                        class="flex-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer text-sm">
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Exportar mi Ruta (.json)</span>
+                    </button>
+                </div>
+
+                <!-- Estado Actual -->
+                <div id="current-status" class="mt-6 p-4 bg-slate-900/60 rounded-xl border border-slate-800/80 hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Última posición
+                                capturada</p>
+                            <p id="geo-coords" class="text-sm font-mono mt-1 text-emerald-400">Buscando satélites...</p>
+                        </div>
+                        <span class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded"
+                            id="geo-time">--:--:--</span>
                     </div>
-                    <span class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded" id="geo-time">--:--:--</span>
                 </div>
             </div>
-        </div>
 
-        <!-- Mapa del Usuario -->
-        <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4 backdrop-blur-sm">
-            <h2 class="text-lg font-semibold mb-3 text-slate-300 flex items-center gap-2">
-                <i data-lucide="map" class="w-5 h-5 text-slate-400"></i>
-                Mi Ruta de Hoy
-            </h2>
-            <div id="map-user" class="map-container"></div>
-        </div>
-
-        <!-- Listado de coordenadas guardadas -->
-        <div>
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-slate-200 flex items-center gap-2">
-                    <i data-lucide="history" class="w-5 h-5 text-slate-400"></i>
-                    Mis Registros de Hoy
+            <!-- Mapa del Usuario -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold mb-3 text-slate-300 flex items-center gap-2">
+                    <i data-lucide="map" class="w-5 h-5 text-slate-400"></i>
+                    Mi Ruta de Hoy
                 </h2>
-                <span id="log-count" class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md text-xs font-semibold">0 registros</span>
+                <div id="map-user" class="map-container"></div>
             </div>
 
-            <div id="logs-container" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                <div id="empty-state" class="text-center py-12 border border-dashed border-slate-800 rounded-2xl">
-                    <i data-lucide="map" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
-                    <p class="text-slate-400 font-medium">No tienes ubicaciones visibles hoy</p>
-                    <p class="text-xs text-slate-600 mt-1">Activa el rastreo para empezar a guardar tu ruta</p>
+            <!-- Listado de coordenadas guardadas -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-slate-400"></i>
+                        Mis Registros de Hoy
+                    </h2>
+                    <span id="log-count"
+                        class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md text-xs font-semibold">0
+                        registros</span>
+                </div>
+
+                <div id="logs-container" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                    <div id="empty-state" class="text-center py-12 border border-dashed border-slate-800 rounded-2xl">
+                        <i data-lucide="map" class="w-12 h-12 text-slate-600 mx-auto mb-3"></i>
+                        <p class="text-slate-400 font-medium">No tienes ubicaciones visibles hoy</p>
+                        <p class="text-xs text-slate-600 mt-1">Activa el rastreo para empezar a guardar tu ruta</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- ======================================================= -->
-    <!-- VISTA 3: PANEL DE CONTROL DE ADMINISTRADOR -->
-    <!-- ======================================================= -->
-    <div id="view-admin" class="mt-8 space-y-6 hidden">
-        <!-- Header Admin -->
-        <div class="flex justify-between items-center bg-slate-800/20 border border-emerald-500/20 rounded-xl px-4 py-3">
+        <!-- ======================================================= -->
+        <!-- VISTA 3: PANEL DE CONTROL DE ADMINISTRADOR -->
+        <!-- ======================================================= -->
+        <div id="view-admin" class="mt-8 space-y-6 hidden">
+            <!-- Header Admin -->
+            <div
+                class="flex justify-between items-center bg-slate-800/20 border border-emerald-500/20 rounded-xl px-4 py-3">
                 <span class="text-sm font-medium text-slate-300 flex items-center gap-2">
                     <i data-lucide="shield" class="w-4 h-4 text-emerald-400"></i>
                     Consola de Administración: <strong class="text-emerald-400">Admin</strong>
                 </span>
-            <span class="text-xs text-slate-900 bg-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">SuperAdmin</span>
-        </div>
+                <span
+                    class="text-xs text-slate-900 bg-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">SuperAdmin</span>
+            </div>
 
-        <!-- Grid de dos columnas para pantallas grandes -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Grid de dos columnas para pantallas grandes -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Columna Izquierda: Listado de Usuarios e Importador -->
-            <div class="lg:col-span-1 space-y-4">
-                <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                        <i data-lucide="users" class="w-4 h-4"></i> Usuarios en Sistema
-                    </h3>
-                    <div id="admin-user-list" class="space-y-2 max-h-[250px] overflow-y-auto mb-4">
-                        <!-- Inyección dinámica de botones de usuario -->
-                    </div>
+                <!-- Columna Izquierda: Listado de Usuarios e Importador -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+                        <h3
+                            class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                            <i data-lucide="users" class="w-4 h-4"></i> Usuarios en Sistema
+                        </h3>
+                        <div id="admin-user-list" class="space-y-2 max-h-[250px] overflow-y-auto mb-4">
+                            <!-- Inyección dinámica de botones de usuario -->
+                        </div>
 
-                    <!-- PANEL DE IMPORTACIÓN MANUAL -->
-                    <div class="mt-4 pt-4 border-t border-slate-700/50">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                            <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i> Importar Datos de Usuario
-                        </h4>
-                        <label class="block">
-                            <span class="sr-only">Seleccionar Archivo JSON</span>
-                            <input type="file" id="admin-import-file" accept=".json"
-                                   class="block w-full text-xs text-slate-400
+                        <!-- PANEL DE IMPORTACIÓN MANUAL -->
+                        <div class="mt-4 pt-4 border-t border-slate-700/50">
+                            <h4
+                                class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                                <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i> Importar Datos de
+                                Usuario
+                            </h4>
+                            <label class="block">
+                                <span class="sr-only">Seleccionar Archivo JSON</span>
+                                <input type="file" id="admin-import-file" accept=".json" class="block w-full text-xs text-slate-400
                                     file:mr-3 file:py-1.5 file:px-3
                                     file:rounded-xl file:border-0
                                     file:text-xs file:font-semibold
                                     file:bg-slate-800 file:text-emerald-400
                                     hover:file:bg-slate-700 cursor-pointer">
-                        </label>
-                        <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">Sube el archivo .json que has exportado desde el móvil para cargarlo en este ordenador.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Columna Derecha: Datos y Mapa del Usuario Seleccionado -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- Placeholder de Selección -->
-                <div id="admin-no-selection" class="text-center py-20 border border-dashed border-slate-800 rounded-2xl bg-slate-800/10">
-                    <i data-lucide="user-plus" class="w-12 h-12 text-slate-600 mx-auto mb-3 animate-pulse"></i>
-                    <p class="text-slate-400 font-medium">No se ha seleccionado ningún usuario</p>
-                    <p class="text-xs text-slate-600 mt-1">Selecciona un usuario a la izquierda o importa un archivo JSON enviado desde el móvil.</p>
-                </div>
-
-                <!-- Datos del Usuario Seleccionado (Visible solo al seleccionar uno) -->
-                <div id="admin-user-details" class="space-y-6 hidden">
-                    <!-- Título de Selección -->
-                    <div class="bg-slate-800/30 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-semibold text-slate-500 uppercase">Viendo Historial de</span>
-                            <h3 id="admin-selected-username" class="text-lg font-bold text-slate-200">NombreUsuario</h3>
-                        </div>
-                        <span id="admin-selected-count" class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full font-semibold">0 Coordenadas</span>
-                    </div>
-
-                    <!-- Mapa del Admin -->
-                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
-                        <h4 class="text-sm font-semibold mb-3 text-slate-300 flex items-center gap-2">
-                            <i data-lucide="map" class="w-4 h-4 text-emerald-400"></i>
-                            Ruta Histórica Absoluta
-                        </h4>
-                        <div id="map-admin" class="map-container"></div>
-                    </div>
-
-                    <!-- Listado de ubicaciones registradas por el admin -->
-                    <div class="space-y-3">
-                        <h4 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                            <i data-lucide="table" class="w-4 h-4"></i> Registros de Ubicación (Incluyendo borrados)
-                        </h4>
-                        <div id="admin-selected-logs" class="space-y-3 max-h-[40vh] overflow-y-auto">
-                            <!-- Coordenadas inyectadas dinámicamente -->
+                            </label>
+                            <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">Sube el archivo .json que has
+                                exportado desde el móvil para cargarlo en este ordenador.</p>
                         </div>
                     </div>
                 </div>
 
+                <!-- Columna Derecha: Datos y Mapa del Usuario Seleccionado -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Placeholder de Selección -->
+                    <div id="admin-no-selection"
+                        class="text-center py-20 border border-dashed border-slate-800 rounded-2xl bg-slate-800/10">
+                        <i data-lucide="user-plus" class="w-12 h-12 text-slate-600 mx-auto mb-3 animate-pulse"></i>
+                        <p class="text-slate-400 font-medium">No se ha seleccionado ningún usuario</p>
+                        <p class="text-xs text-slate-600 mt-1">Selecciona un usuario a la izquierda o importa un archivo
+                            JSON enviado desde el móvil.</p>
+                    </div>
+
+                    <!-- Datos del Usuario Seleccionado (Visible solo al seleccionar uno) -->
+                    <div id="admin-user-details" class="space-y-6 hidden">
+                        <!-- Título de Selección -->
+                        <div
+                            class="bg-slate-800/30 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+                            <div>
+                                <span class="text-xs font-semibold text-slate-500 uppercase">Viendo Historial de</span>
+                                <h3 id="admin-selected-username" class="text-lg font-bold text-slate-200">NombreUsuario
+                                </h3>
+                            </div>
+                            <span id="admin-selected-count"
+                                class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full font-semibold">0
+                                Coordenadas</span>
+                        </div>
+
+                        <!-- Mapa del Admin -->
+                        <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-4">
+                            <h4 class="text-sm font-semibold mb-3 text-slate-300 flex items-center gap-2">
+                                <i data-lucide="map" class="w-4 h-4 text-emerald-400"></i>
+                                Ruta Histórica Absoluta
+                            </h4>
+                            <div id="map-admin" class="map-container"></div>
+                        </div>
+
+                        <!-- Listado de ubicaciones registradas por el admin -->
+                        <div class="space-y-3">
+                            <h4 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <i data-lucide="table" class="w-4 h-4"></i> Registros de Ubicación (Incluyendo borrados)
+                            </h4>
+                            <div id="admin-selected-logs" class="space-y-3 max-h-[40vh] overflow-y-auto">
+                                <!-- Coordenadas inyectadas dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        </main>
+
+        <!-- ======================================================= -->
+        <!-- MODAL DE CONFIGURACIÓN DE LA NUBE (SERVERLESS) -->
+        <!-- ======================================================= -->
+        <div id="modal-cloud-config"
+            class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden select-none">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                        <i data-lucide="cloud-lightning" class="text-emerald-400 w-5 h-5"></i>
+                        Sincronización en la Nube
+                    </h3>
+                    <button onclick="closeCloudModal()" class="text-slate-500 hover:text-slate-300 cursor-pointer">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Para conectar tus dispositivos en tiempo real desde GitHub Pages, puedes vincular tu propia base de
+                    datos en la nube sin servidor de forma totalmente gratuita.
+                </p>
+
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Configuración del
+                        SDK de la Nube (JSON)</label>
+                    <textarea id="cloud-json-input" rows="6"
+                        placeholder='{&#10;  "apiKey": "...",&#10;  "authDomain": "...",&#10;  "projectId": "...",&#10;  "storageBucket": "...",&#10;  "messagingSenderId": "...",&#10;  "appId": "..."&#10;}'
+                        class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-emerald-500 placeholder-slate-800"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button onclick="saveCloudConfig()"
+                        class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">
+                        Guardar y Conectar
+                    </button>
+                    <button onclick="clearCloudConfig()"
+                        class="bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 px-4 py-2.5 rounded-xl text-xs transition cursor-pointer">
+                        Desconectar
+                    </button>
+                </div>
+
+                <p class="text-[10px] text-slate-600 leading-normal">
+                    Nota: Si desconectas, el rastreador seguirá funcionando de manera local (IndexedDB) con la opción de
+                    importar/exportar manualmente tus archivos JSON.
+                </p>
             </div>
         </div>
     </div>
 
-    </main>
+    <!-- SDK de Base de Datos en la Nube (Firebase v11) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- ======================================================= -->
-    <!-- MODAL DE CONFIGURACIÓN DE LA NUBE (SERVERLESS) -->
-    <!-- ======================================================= -->
-    <div id="modal-cloud-config" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden select-none">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <i data-lucide="cloud-lightning" class="text-emerald-400 w-5 h-5"></i>
-                    Sincronización en la Nube
-                </h3>
-                <button onclick="closeCloudModal()" class="text-slate-500 hover:text-slate-300 cursor-pointer">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
+        // --- DB & CONFIGURACIONES ---
+        let db = null;
+        let watchId = null;
+        let userMap = null;
+        let adminMap = null;
+        let userPolyline = null;
+        let adminPolyline = null;
+        let userMarkers = [];
+        let adminMarkers = [];
+        let isFirstPointOfSession = true;
 
-            <p class="text-xs text-slate-400 leading-relaxed">
-                Para conectar tus dispositivos en tiempo real desde GitHub Pages, puedes vincular tu propia base de datos en la nube sin servidor de forma totalmente gratuita.
-            </p>
+        const DB_NAME = "GeoHistoryDB";
+        const STORE_LOCATIONS = "locations";
+        const STORE_USERS = "users";
 
-            <div class="space-y-2">
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Configuración del SDK de la Nube (JSON)</label>
-                <textarea id="cloud-json-input" rows="6" placeholder='{&#10;  "apiKey": "...",&#10;  "authDomain": "...",&#10;  "projectId": "...",&#10;  "storageBucket": "...",&#10;  "messagingSenderId": "...",&#10;  "appId": "..."&#10;}'
-                          class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-emerald-500 placeholder-slate-800"></textarea>
-            </div>
+        let currentUser = localStorage.getItem("geotracker_username") || null;
 
-            <div class="flex gap-3 pt-2">
-                <button onclick="saveCloudConfig()" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">
-                    Guardar y Conectar
-                </button>
-                <button onclick="clearCloudConfig()" class="bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 px-4 py-2.5 rounded-xl text-xs transition cursor-pointer">
-                    Desconectar
-                </button>
-            </div>
+        // --- INTEGRACIÓN DE BASE DE DATOS EN LA NUBE ---
+        let appCloud = null;
+        let authCloud = null;
+        let dbCloud = null;
+        let isCloudActive = false;
+        let cloudUser = null;
+        let cloudLocations = []; // Buffer en memoria de logs en tiempo real para el admin
+        let unsubscribeUsers = null;
+        let unsubscribeLocations = null;
 
-            <p class="text-[10px] text-slate-600 leading-normal">
-                Nota: Si desconectas, el rastreador seguirá funcionando de manera local (IndexedDB) con la opción de importar/exportar manualmente tus archivos JSON.
-            </p>
-        </div>
-    </div>
-</div>
+        // Obtener appId único
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'geohistory-app';
 
-<!-- SDK de Base de Datos en la Nube (Firebase v11) -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // --- DB & CONFIGURACIONES ---
-    let db = null;
-    let watchId = null;
-    let userMap = null;
-    let adminMap = null;
-    let userPolyline = null;
-    let adminPolyline = null;
-    let userMarkers = [];
-    let adminMarkers = [];
-    let isFirstPointOfSession = true;
-
-    const DB_NAME = "GeoTrackerDB_v3_1";
-    const STORE_LOCATIONS = "locations";
-    const STORE_USERS = "users";
-
-    let currentUser = localStorage.getItem("geotracker_username") || null;
-
-    // --- INTEGRACIÓN DE BASE DE DATOS EN LA NUBE ---
-    let appCloud = null;
-    let authCloud = null;
-    let dbCloud = null;
-    let isCloudActive = false;
-    let cloudUser = null;
-    let cloudLocations = []; // Buffer en memoria de logs en tiempo real para el admin
-    let unsubscribeUsers = null;
-    let unsubscribeLocations = null;
-
-    // Obtener appId único
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'geotracker-app-v3-1';
-
-    // Tu configuración oficial de Firebase por defecto (Inyectada de forma estática)
-    const defaultFirebaseConfig = {
-        apiKey: "AIzaSyCWkU1Nf3mniPrg0N-ozz6gFxXwdzSyPDE",
-        authDomain: "geohistory-f246c.firebaseapp.com",
-        projectId: "geohistory-f246c",
-        storageBucket: "geohistory-f246c.firebasestorage.app",
-        messagingSenderId: "597198735081",
-        appId: "1:597198735081:web:c25da83619b6f17dfa9278",
-        measurementId: "G-ZLPC494BJX"
-    };
-
-    let firebaseConfig = defaultFirebaseConfig;
-
-    // Permitir sobrescribir en caliente desde localStorage si decides cambiar de Base de Datos en el futuro
-    const savedConfig = localStorage.getItem("geotracker_cloud_config");
-    if (savedConfig) {
-        try {
-            firebaseConfig = JSON.parse(savedConfig);
-        } catch (e) {
-            console.error("Configuración guardada inválida:", e);
-        }
-    }
-
-    // Inicializar Nube si hay configuración activa
-    if (firebaseConfig) {
-        try {
-            appCloud = initializeApp(firebaseConfig);
-            authCloud = getAuth(appCloud);
-            dbCloud = getFirestore(appCloud);
-            isCloudActive = true;
-        } catch (e) {
-            console.error("Error al inicializar la base de datos en la nube:", e);
-            handleFirebaseError(e);
-        }
-    }
-
-    // Inicializar Iconos de UI
-    lucide.createIcons();
-
-    // --- DIAGNÓSTICO DE ERRORES FIREBASE ---
-    function handleFirebaseError(error) {
-        console.error("Detalles del error de Firebase:", error);
-        const errorBanner = document.getElementById('cloud-global-error');
-        const errorText = document.getElementById('cloud-global-error-text');
-
-        if (!errorBanner || !errorText) return;
-
-        errorBanner.classList.remove('hidden');
-
-        let friendlyMessage = `Error [${error.code || 'Desconocido'}]: `;
-
-        // Diagnóstico preciso inteligente
-        if (error.code === 'auth/operation-not-allowed') {
-            friendlyMessage += "El inicio de sesión 'Anónimo' está desactivado en tu proyecto. Ve a tu consola de Firebase -> Authentication -> pestaña 'Sign-in method' y activa el proveedor 'Anónimo'.";
-        } else if (error.code === 'permission-denied') {
-            friendlyMessage += "Permiso denegado por reglas de seguridad. Ve a la consola de Firebase -> Cloud Firestore -> pestaña 'Reglas' (Rules) y asegúrate de permitir lectura/escritura (por ejemplo, configurarlas en Modo de Prueba).";
-        } else if (error.message && error.message.includes("Could not reach Cloud Firestore backend")) {
-            friendlyMessage += "No se puede contactar con Firestore. Revisa si has 'Creado la Base de Datos' Firestore dentro del panel de Firebase, o si tu conexión a internet está bloqueada por proxy.";
-        } else if (error.code === 'auth/network-request-failed') {
-            friendlyMessage += "Error de red al autenticar con Firebase. Comprueba tu conexión.";
-        } else {
-            friendlyMessage += error.message || "Asegúrate de que la base de datos Firestore esté inicializada en tu consola de Firebase y que las reglas de lectura/escritura estén abiertas.";
-        }
-
-        errorText.textContent = friendlyMessage;
-        updateDbStatus("Error Nube", "bg-red-500");
-    }
-
-    // --- INICIALIZACIÓN DE LA DB LOCAL (IndexedDB) ---
-    const dbRequest = indexedDB.open(DB_NAME, 2);
-
-    dbRequest.onerror = () => updateDbStatus("Error de DB", "bg-red-500");
-
-    dbRequest.onsuccess = (event) => {
-        db = event.target.result;
-
-        // Si la nube está activa, iniciamos sesión serverless primero
-        if (isCloudActive) {
-            updateDbStatus("Conectando Nube...", "bg-amber-500 animate-pulse");
-            const initAuth = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(authCloud, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(authCloud);
-                    }
-                } catch (e) {
-                    console.error("Fallo de autenticación en la nube:", e);
-                    handleFirebaseError(e);
-                }
-            };
-            initAuth();
-
-            onAuthStateChanged(authCloud, (user) => {
-                cloudUser = user;
-                if (user) {
-                    updateDbStatus("Nube Conectada", "bg-emerald-500");
-                    document.getElementById('cloud-global-error').classList.add('hidden'); // Ocultar si conecta bien
-                    // Sincronizar logs que hayamos guardado localmente cuando estábamos desconectados
-                    syncAllLocalLogsToCloud();
-                    // Iniciar oyentes en tiempo real
-                    startCloudRealtimeListeners();
-                } else {
-                    updateDbStatus("Nube Desconectada", "bg-slate-700");
-                }
-                checkSession();
-            });
-        } else {
-            updateDbStatus("Modo Local Activo", "bg-blue-500");
-            checkSession();
-        }
-    };
-
-    dbRequest.onupgradeneeded = (event) => {
-        const database = event.target.result;
-
-        // Almacén de Usuarios
-        if (!database.objectStoreNames.contains(STORE_USERS)) {
-            database.createObjectStore(STORE_USERS, { keyPath: "username" });
-        }
-
-        // Almacén de Ubicaciones con índice por username para consultas rápidas
-        if (!database.objectStoreNames.contains(STORE_LOCATIONS)) {
-            const locStore = database.createObjectStore(STORE_LOCATIONS, { keyPath: "timestamp" });
-            locStore.createIndex("username", "username", { unique: false });
-        }
-    };
-
-    // --- ENRUTADOR DE VISTAS (SPA) ---
-    function navigateTo(viewName) {
-        document.getElementById('view-auth').classList.add('hidden');
-        document.getElementById('view-tracker').classList.add('hidden');
-        document.getElementById('view-admin').classList.add('hidden');
-        document.getElementById('btn-logout').classList.add('hidden');
-
-        if (viewName === 'auth') {
-            document.getElementById('view-auth').classList.remove('hidden');
-            setupAuthEvents();
-        } else if (viewName === 'tracker') {
-            document.getElementById('view-tracker').classList.remove('hidden');
-            document.getElementById('btn-logout').classList.remove('hidden');
-            document.getElementById('tracker-user-display').textContent = currentUser;
-            initUserMap();
-            renderUserLogs();
-        } else if (viewName === 'admin') {
-            document.getElementById('view-admin').classList.remove('hidden');
-            document.getElementById('btn-logout').classList.remove('hidden');
-            initAdminMap();
-            loadAdminUserDashboard();
-        }
-    }
-
-    function checkSession() {
-        if (currentUser) {
-            if (currentUser === "admin") {
-                navigateTo('admin');
-            } else {
-                navigateTo('tracker');
-            }
-        } else {
-            navigateTo('auth');
-        }
-    }
-
-    // --- CONTROL DE LOGIN / AUTENTICACIÓN ---
-    function setupAuthEvents() {
-        const usernameInput = document.getElementById('login-username');
-        const passContainer = document.getElementById('admin-pass-container');
-        const formLogin = document.getElementById('form-login');
-        const errorMsg = document.getElementById('login-error-msg');
-        const adminBtn = document.getElementById('btn-admin-shortcut');
-
-        // Mostrar u ocultar contraseña dinámicamente si escribe "admin" de forma manual
-        usernameInput.addEventListener('input', (e) => {
-            if (e.target.value.trim().toLowerCase() === 'admin') {
-                passContainer.classList.remove('hidden');
-            } else {
-                passContainer.classList.add('hidden');
-                errorMsg.classList.add('hidden');
-            }
-        });
-
-        // Botón de Acceso Rápido Administrador
-        adminBtn.onclick = () => {
-            currentUser = "admin";
-            localStorage.setItem("geotracker_username", "admin");
-            errorMsg.classList.add('hidden');
-            // Si la nube está activa, levantamos escuchas en tiempo real para el admin
-            startCloudRealtimeListeners();
-            navigateTo('admin');
+        // Tu configuración oficial de Firebase por defecto (Inyectada de forma estática)
+        const defaultFirebaseConfig = {
+            apiKey: "AIzaSyCWkU1Nf3mniPrg0N-ozz6gFxXwdzSyPDE",
+            authDomain: "geohistory-f246c.firebaseapp.com",
+            projectId: "geohistory-f246c",
+            storageBucket: "geohistory-f246c.firebasestorage.app",
+            messagingSenderId: "597198735081",
+            appId: "1:597198735081:web:c25da83619b6f17dfa9278",
+            measurementId: "G-ZLPC494BJX"
         };
 
-        formLogin.onsubmit = (e) => {
-            e.preventDefault();
-            const username = usernameInput.value.trim();
-            const password = document.getElementById('login-password').value;
+        let firebaseConfig = defaultFirebaseConfig;
 
-            if (username.toLowerCase() === 'admin') {
-                if (password === 'admin') {
-                    currentUser = "admin";
-                    localStorage.setItem("geotracker_username", "admin");
-                    errorMsg.classList.add('hidden');
-                    startCloudRealtimeListeners();
+        // Permitir sobrescribir en caliente desde localStorage si decides cambiar de Base de Datos en el futuro
+        const savedConfig = localStorage.getItem("geotracker_cloud_config");
+        if (savedConfig) {
+            try {
+                firebaseConfig = JSON.parse(savedConfig);
+            } catch (e) {
+                console.error("Configuración guardada inválida:", e);
+            }
+        }
+
+        // Timeout para conexión Firebase
+        let firebaseConnectionTimeout = null;
+
+        // Inicializar Nube si hay configuración activa
+        if (firebaseConfig) {
+            try {
+                appCloud = initializeApp(firebaseConfig);
+                authCloud = getAuth(appCloud);
+                dbCloud = getFirestore(appCloud);
+                isCloudActive = true;
+            } catch (e) {
+                console.error("Error al inicializar la base de datos en la nube:", e);
+                handleFirebaseError(e);
+                isCloudActive = false;
+            }
+        }
+
+        // Inicializar Iconos de UI
+        lucide.createIcons();
+
+        // --- DIAGNÓSTICO DE ERRORES FIREBASE ---
+        function handleFirebaseError(error) {
+            console.error("Detalles del error de Firebase:", error);
+            const errorBanner = document.getElementById('cloud-global-error');
+            const errorText = document.getElementById('cloud-global-error-text');
+
+            if (!errorBanner || !errorText) return;
+
+            errorBanner.classList.remove('hidden');
+
+            let friendlyMessage = `Error [${error.code || 'Desconocido'}]: `;
+
+            // Diagnóstico preciso inteligente
+            if (error.code === 'auth/operation-not-allowed') {
+                friendlyMessage += "El inicio de sesión 'Anónimo' está desactivado en tu proyecto. Ve a tu consola de Firebase -> Authentication -> pestaña 'Sign-in method' y activa el proveedor 'Anónimo'.";
+            } else if (error.code === 'permission-denied') {
+                friendlyMessage += "Permiso denegado por reglas de seguridad. Ve a la consola de Firebase -> Cloud Firestore -> pestaña 'Reglas' (Rules) y asegúrate de permitir lectura/escritura (por ejemplo, configurarlas en Modo de Prueba).";
+            } else if (error.message && error.message.includes("Could not reach Cloud Firestore backend")) {
+                friendlyMessage += "No se puede contactar con Firestore. Revisa si has 'Creado la Base de Datos' Firestore dentro del panel de Firebase, o si tu conexión a internet está bloqueada por proxy.";
+            } else if (error.code === 'auth/network-request-failed') {
+                friendlyMessage += "Error de red al autenticar con Firebase. Comprueba tu conexión.";
+            } else {
+                friendlyMessage += error.message || "Asegúrate de que la base de datos Firestore esté inicializada en tu consola de Firebase y que las reglas de lectura/escritura estén abiertas.";
+            }
+
+            errorText.textContent = friendlyMessage;
+            updateDbStatus("Error Nube", "bg-red-500");
+        }
+
+        // --- INICIALIZACIÓN DE LA DB LOCAL (IndexedDB) ---
+        const dbRequest = indexedDB.open(DB_NAME, 2);
+
+        dbRequest.onerror = () => updateDbStatus("Error de DB", "bg-red-500");
+
+        dbRequest.onsuccess = (event) => {
+            db = event.target.result;
+
+            // Si la nube está activa, iniciamos sesión serverless primero
+            if (isCloudActive) {
+                updateDbStatus("Conectando Nube...", "bg-amber-500 animate-pulse");
+
+                // Timeout de 5 segundos para conexión Firebase
+                firebaseConnectionTimeout = setTimeout(() => {
+                    if (!cloudUser) {
+                        console.warn("Timeout de conexión Firebase - continuando en modo local");
+                        isCloudActive = false;
+                        updateDbStatus("Modo Local (Firebase timeout)", "bg-blue-500");
+                        checkSession();
+                    }
+                }, 5000);
+
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(authCloud, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(authCloud);
+                        }
+                    } catch (e) {
+                        console.error("Fallo de autenticación en la nube:", e);
+                        handleFirebaseError(e);
+                        isCloudActive = false;
+                        if (firebaseConnectionTimeout) {
+                            clearTimeout(firebaseConnectionTimeout);
+                        }
+                        updateDbStatus("Modo Local (Error nube)", "bg-blue-500");
+                        checkSession();
+                    }
+                };
+                initAuth();
+
+                onAuthStateChanged(authCloud, (user) => {
+                    if (firebaseConnectionTimeout) {
+                        clearTimeout(firebaseConnectionTimeout);
+                    }
+                    cloudUser = user;
+                    if (user) {
+                        updateDbStatus("Nube Conectada", "bg-emerald-500");
+                        document.getElementById('cloud-global-error').classList.add('hidden'); // Ocultar si conecta bien
+                        // Sincronizar logs que hayamos guardado localmente cuando estábamos desconectados
+                        syncAllLocalLogsToCloud();
+                        // Iniciar oyentes en tiempo real
+                        startCloudRealtimeListeners();
+                    } else {
+                        updateDbStatus("Modo Local", "bg-blue-500");
+                    }
+                    checkSession();
+                });
+            } else {
+                updateDbStatus("Modo Local", "bg-blue-500");
+                checkSession();
+            }
+        };
+
+        dbRequest.onupgradeneeded = (event) => {
+            const database = event.target.result;
+
+            // Almacén de Usuarios
+            if (!database.objectStoreNames.contains(STORE_USERS)) {
+                database.createObjectStore(STORE_USERS, { keyPath: "username" });
+            }
+
+            // Almacén de Ubicaciones con índice por username para consultas rápidas
+            if (!database.objectStoreNames.contains(STORE_LOCATIONS)) {
+                const locStore = database.createObjectStore(STORE_LOCATIONS, { keyPath: "timestamp" });
+                locStore.createIndex("username", "username", { unique: false });
+            }
+        };
+
+        // --- ENRUTADOR DE VISTAS (SPA) ---
+        function navigateTo(viewName) {
+            document.getElementById('view-auth').classList.add('hidden');
+            document.getElementById('view-tracker').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('btn-logout').classList.add('hidden');
+
+            if (viewName === 'auth') {
+                document.getElementById('view-auth').classList.remove('hidden');
+                setupAuthEvents();
+            } else if (viewName === 'tracker') {
+                document.getElementById('view-tracker').classList.remove('hidden');
+                document.getElementById('btn-logout').classList.remove('hidden');
+                document.getElementById('tracker-user-display').textContent = currentUser;
+                initUserMap();
+                renderUserLogs();
+            } else if (viewName === 'admin') {
+                document.getElementById('view-admin').classList.remove('hidden');
+                document.getElementById('btn-logout').classList.remove('hidden');
+                initAdminMap();
+                loadAdminUserDashboard();
+            }
+        }
+
+        function checkSession() {
+            if (currentUser) {
+                if (currentUser === "admin") {
                     navigateTo('admin');
                 } else {
-                    errorMsg.classList.remove('hidden');
+                    navigateTo('tracker');
                 }
             } else {
-                registerOrLoginUser(username);
+                navigateTo('auth');
             }
-        };
-    }
-
-    function registerOrLoginUser(username) {
-        if (!db) return;
-
-        const tx = db.transaction([STORE_USERS], "readwrite");
-        const store = tx.objectStore(STORE_USERS);
-
-        const userObj = { username: username, registeredAt: Date.now() };
-        store.put(userObj);
-
-        tx.oncomplete = () => {
-            currentUser = username;
-            localStorage.setItem("geotracker_username", username);
-            syncAllLocalLogsToCloud();
-            navigateTo('tracker');
-        };
-    }
-
-    // --- CIERRE DE SESIÓN SEGURO ---
-    document.getElementById('btn-logout').addEventListener('click', () => {
-        try {
-            stopTracking();
-        } catch(e) {
-            console.warn("Fallo al detener rastreo:", e);
         }
 
-        currentUser = null;
-        localStorage.removeItem("geotracker_username");
-        isFirstPointOfSession = true;
-        selectedAdminUser = null;
+        // --- CONTROL DE LOGIN / AUTENTICACIÓN ---
+        function setupAuthEvents() {
+            const usernameInput = document.getElementById('login-username');
+            const passContainer = document.getElementById('admin-pass-container');
+            const formLogin = document.getElementById('form-login');
+            const errorMsg = document.getElementById('login-error-msg');
+            const adminBtn = document.getElementById('btn-admin-shortcut');
 
-        // Apagar suscripciones en tiempo real
-        if (unsubscribeUsers) { unsubscribeUsers(); unsubscribeUsers = null; }
-        if (unsubscribeLocations) { unsubscribeLocations(); unsubscribeLocations = null; }
+            // Mostrar u ocultar contraseña dinámicamente si escribe "admin" de forma manual
+            usernameInput.addEventListener('input', (e) => {
+                if (e.target.value.trim().toLowerCase() === 'admin') {
+                    passContainer.classList.remove('hidden');
+                } else {
+                    passContainer.classList.add('hidden');
+                    errorMsg.classList.add('hidden');
+                }
+            });
 
-        try {
-            if (userMap) {
-                userMap.remove();
+            // Botón de Acceso Rápido Administrador
+            adminBtn.onclick = () => {
+                currentUser = "admin";
+                localStorage.setItem("geotracker_username", "admin");
+                errorMsg.classList.add('hidden');
+                // Si la nube está activa, levantamos escuchas en tiempo real para el admin
+                startCloudRealtimeListeners();
+                navigateTo('admin');
+            };
+
+            formLogin.onsubmit = (e) => {
+                e.preventDefault();
+                const username = usernameInput.value.trim();
+                const password = document.getElementById('login-password').value;
+
+                if (username.toLowerCase() === 'admin') {
+                    if (password === 'admin') {
+                        currentUser = "admin";
+                        localStorage.setItem("geotracker_username", "admin");
+                        errorMsg.classList.add('hidden');
+                        startCloudRealtimeListeners();
+                        navigateTo('admin');
+                    } else {
+                        errorMsg.classList.remove('hidden');
+                    }
+                } else {
+                    registerOrLoginUser(username);
+                }
+            };
+        }
+
+        function registerOrLoginUser(username) {
+            if (!db) return;
+
+            const tx = db.transaction([STORE_USERS], "readwrite");
+            const store = tx.objectStore(STORE_USERS);
+
+            const userObj = { username: username, registeredAt: Date.now() };
+            store.put(userObj);
+
+            tx.oncomplete = () => {
+                currentUser = username;
+                localStorage.setItem("geotracker_username", username);
+                syncAllLocalLogsToCloud();
+                navigateTo('tracker');
+            };
+        }
+
+        // --- CIERRE DE SESIÓN SEGURO ---
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            try {
+                stopTracking();
+            } catch (e) {
+                console.warn("Fallo al detener rastreo:", e);
+            }
+
+            currentUser = null;
+            localStorage.removeItem("geotracker_username");
+            isFirstPointOfSession = true;
+            selectedAdminUser = null;
+
+            // Apagar suscripciones en tiempo real
+            if (unsubscribeUsers) { unsubscribeUsers(); unsubscribeUsers = null; }
+            if (unsubscribeLocations) { unsubscribeLocations(); unsubscribeLocations = null; }
+
+            try {
+                if (userMap) {
+                    userMap.remove();
+                    userMap = null;
+                }
+            } catch (e) {
                 userMap = null;
             }
-        } catch(e) {
-            userMap = null;
-        }
 
-        try {
-            if (adminMap) {
-                adminMap.remove();
+            try {
+                if (adminMap) {
+                    adminMap.remove();
+                    adminMap = null;
+                }
+            } catch (e) {
                 adminMap = null;
             }
-        } catch(e) {
-            adminMap = null;
-        }
 
-        const usernameInput = document.getElementById('login-username');
-        if (usernameInput) usernameInput.value = "";
+            const usernameInput = document.getElementById('login-username');
+            if (usernameInput) usernameInput.value = "";
 
-        const passwordInput = document.getElementById('login-password');
-        if (passwordInput) passwordInput.value = "";
+            const passwordInput = document.getElementById('login-password');
+            if (passwordInput) passwordInput.value = "";
 
-        const passContainer = document.getElementById('admin-pass-container');
-        if (passContainer) passContainer.classList.add('hidden');
+            const passContainer = document.getElementById('admin-pass-container');
+            if (passContainer) passContainer.classList.add('hidden');
 
-        const errorMsg = document.getElementById('login-error-msg');
-        if (errorMsg) errorMsg.classList.add('hidden');
+            const errorMsg = document.getElementById('login-error-msg');
+            if (errorMsg) errorMsg.classList.add('hidden');
 
-        navigateTo('auth');
-    });
-
-    // --- INICIALIZADORES DE MAPAS (LEAFLET) ---
-    function initUserMap() {
-        if (userMap) return;
-
-        userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap, © CARTO',
-            maxZoom: 19
-        }).addTo(userMap);
-
-        userPolyline = L.polyline([], {
-            color: '#10b981', // emerald-500
-            weight: 4,
-            opacity: 0.8,
-            dashArray: '6, 6'
-        }).addTo(userMap);
-    }
-
-    // --- INICIALIZAR MAPA DE ADMIN ---
-    function initAdminMap() {
-        if (adminMap) return;
-
-        adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap, © CARTO',
-            maxZoom: 19
-        }).addTo(adminMap);
-
-        adminPolyline = L.polyline([], {
-            color: '#38bdf8', // sky-400
-            weight: 4,
-            opacity: 0.8,
-            dashArray: '6, 6'
-        }).addTo(adminMap);
-    }
-
-    // --- MANEJO DE GEOLOCALIZACIÓN (RASTREO) ---
-    const btnToggle = document.getElementById('btn-toggle');
-    const btnClear = document.getElementById('btn-clear');
-    const currentStatusDiv = document.getElementById('current-status');
-
-    if (btnToggle) btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
-
-    if (btnClear) {
-        btnClear.addEventListener('click', () => {
-            const msg = "Se eliminará tu historial de ubicaciones de tu vista.\n\nNota: Los administradores mantendrán una copia segura para auditorías en la nube.";
-            if (confirm(msg)) {
-                softClearUserHistory();
-            }
-        });
-    }
-
-    function startTracking() {
-        if (!("geolocation" in navigator)) {
-            alert("Tu dispositivo o navegador no soporta geolocalización.");
-            return;
-        }
-
-        isFirstPointOfSession = true;
-
-        watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+            navigateTo('auth');
         });
 
-        btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
-        btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
-        btnToggle.querySelector('span').textContent = "Detener Rastreo";
-        btnToggle.querySelector('i').setAttribute('data-lucide', 'square');
-        currentStatusDiv.classList.remove('hidden');
-        lucide.createIcons();
-    }
+        // --- INICIALIZADORES DE MAPAS (LEAFLET) ---
+        function initUserMap() {
+            if (userMap) return;
 
-    function stopTracking() {
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-        if (btnToggle) {
-            btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
-            btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
-            btnToggle.querySelector('span').textContent = "Iniciar Rastreo";
-            btnToggle.querySelector('i').setAttribute('data-lucide', 'play');
-        }
-        if (currentStatusDiv) {
-            currentStatusDiv.classList.add('hidden');
-        }
-        lucide.createIcons();
-    }
+            userMap = L.map('map-user').setView([40.416775, -3.703790], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(userMap);
 
-    function handleGeoSuccess(position) {
-        const { latitude, longitude, accuracy } = position.coords;
-        const timestamp = position.timestamp;
-        const timeString = new Date(timestamp).toLocaleTimeString();
-
-        document.getElementById('geo-coords').textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
-        document.getElementById('geo-time').textContent = timeString;
-
-        if (isFirstPointOfSession && userMap) {
-            userMap.setView([latitude, longitude], 16);
-            isFirstPointOfSession = false;
+            userPolyline = L.polyline([], {
+                color: '#10b981', // emerald-500
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '6, 6'
+            }).addTo(userMap);
         }
 
-        if (accuracy > 50) return; // Filtrado de posiciones ruidosas
+        // --- INICIALIZAR MAPA DE ADMIN ---
+        function initAdminMap() {
+            if (adminMap) return;
 
-        saveLocationToDb({
-            timestamp,
-            username: currentUser,
-            lat: latitude,
-            lon: longitude,
-            accuracy,
-            dateStr: new Date(timestamp).toLocaleDateString(),
-            timeStr: timeString,
-            userCleared: false
-        });
-    }
+            adminMap = L.map('map-admin').setView([40.416775, -3.703790], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap, © CARTO',
+                maxZoom: 19
+            }).addTo(adminMap);
 
-    function handleGeoError(error) {
-        const coordsEl = document.getElementById('geo-coords');
-        if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
-    }
-
-    // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
-    function saveLocationToDb(entry) {
-        if (!db) return;
-
-        // 1. Guardar siempre en local (IndexedDB)
-        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
-        tx.objectStore(STORE_LOCATIONS).put(entry);
-        tx.oncomplete = () => {
-            renderUserLogs();
-
-            // 2. Si hay conexión en la nube, sincronizar asíncronamente
-            if (isCloudActive && cloudUser) {
-                syncLocationToCloud(entry);
-            }
-        };
-    }
-
-    // Guardado y Actualización asíncrona en Firestore (Cumpliendo REGLA 1 de rutas estrictas)
-    async function syncLocationToCloud(entry) {
-        if (!isCloudActive || !cloudUser) return;
-        try {
-            // Registrar perfil del usuario en el censo de la nube
-            const userRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'users', entry.username);
-            await setDoc(userRef, { username: entry.username, lastActive: Date.now() }, { merge: true });
-
-            // Registrar posición usando un ID único compuesto de username y timestamp para evitar duplicados
-            const locRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'locations', `${entry.username}_${entry.timestamp}`);
-            await setDoc(locRef, entry);
-        } catch (e) {
-            console.error("Fallo al subir coordenada a la nube:", e);
-            handleFirebaseError(e);
+            adminPolyline = L.polyline([], {
+                color: '#38bdf8', // sky-400
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '6, 6'
+            }).addTo(adminMap);
         }
-    }
 
-    // Sincronizar logs acumulados en local al iniciar sesión o recuperar red
-    function syncAllLocalLogsToCloud() {
-        if (!isCloudActive || !cloudUser || !currentUser || currentUser === "admin") return;
+        // --- MANEJO DE GEOLOCALIZACIÓN (RASTREO) ---
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnClear = document.getElementById('btn-clear');
+        const currentStatusDiv = document.getElementById('current-status');
 
-        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-        const store = tx.objectStore(STORE_LOCATIONS);
-        const index = store.index("username");
-        const request = index.getAll(IDBKeyRange.only(currentUser));
+        if (btnToggle) btnToggle.addEventListener('click', () => watchId === null ? startTracking() : stopTracking());
 
-        request.onsuccess = () => {
-            const logs = request.result;
-            logs.forEach(log => {
-                syncLocationToCloud(log);
+        if (btnClear) {
+            btnClear.addEventListener('click', () => {
+                const msg = "Se eliminará tu historial de ubicaciones de tu vista.\n\nNota: Los administradores mantendrán una copia segura para auditorías en la nube.";
+                if (confirm(msg)) {
+                    softClearUserHistory();
+                }
             });
-        };
-    }
+        }
 
-    function renderUserLogs() {
-        if (!db || !currentUser) return;
-
-        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-        const store = tx.objectStore(STORE_LOCATIONS);
-        const index = store.index("username");
-        const request = index.getAll(IDBKeyRange.only(currentUser));
-
-        request.onsuccess = () => {
-            const allLogs = request.result;
-            const visibleLogs = allLogs.filter(log => !log.userCleared);
-            visibleLogs.sort((a, b) => b.timestamp - a.timestamp);
-
-            document.getElementById('log-count').textContent = `${visibleLogs.length} registros`;
-
-            const container = document.getElementById('logs-container');
-            const emptyState = document.getElementById('empty-state');
-            container.querySelectorAll('.log-item').forEach(el => el.remove());
-
-            if (visibleLogs.length === 0) {
-                emptyState.classList.remove('hidden');
-                updateUserMapRender([]);
+        function startTracking() {
+            if (!("geolocation" in navigator)) {
+                alert("Tu dispositivo o navegador no soporta geolocalización.");
                 return;
             }
 
-            emptyState.classList.add('hidden');
-            updateUserMapRender(visibleLogs);
+            isFirstPointOfSession = true;
 
-            visibleLogs.forEach((item) => {
-                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-                const div = document.createElement('div');
-                div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
-                div.innerHTML = `
+            watchId = navigator.geolocation.watchPosition(handleGeoSuccess, handleGeoError, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+
+            btnToggle.classList.replace('bg-emerald-500', 'bg-red-500');
+            btnToggle.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
+            btnToggle.querySelector('span').textContent = "Detener Rastreo";
+            btnToggle.querySelector('i').setAttribute('data-lucide', 'square');
+            currentStatusDiv.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (btnToggle) {
+                btnToggle.classList.replace('bg-red-500', 'bg-emerald-500');
+                btnToggle.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
+                btnToggle.querySelector('span').textContent = "Iniciar Rastreo";
+                btnToggle.querySelector('i').setAttribute('data-lucide', 'play');
+            }
+            if (currentStatusDiv) {
+                currentStatusDiv.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function handleGeoSuccess(position) {
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp;
+            const timeString = new Date(timestamp).toLocaleTimeString();
+
+            document.getElementById('geo-coords').textContent = `Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
+            document.getElementById('geo-time').textContent = timeString;
+
+            if (isFirstPointOfSession && userMap) {
+                userMap.setView([latitude, longitude], 16);
+                isFirstPointOfSession = false;
+            }
+
+            if (accuracy > 50) return; // Filtrado de posiciones ruidosas
+
+            saveLocationToDb({
+                timestamp,
+                username: currentUser,
+                lat: latitude,
+                lon: longitude,
+                accuracy,
+                dateStr: new Date(timestamp).toLocaleDateString(),
+                timeStr: timeString,
+                userCleared: false
+            });
+        }
+
+        function handleGeoError(error) {
+            const coordsEl = document.getElementById('geo-coords');
+            if (coordsEl) coordsEl.textContent = `Error GPS: ${error.message}`;
+        }
+
+        // --- OPERACIONES DE PERSISTENCIA (OFFLINE + ONLINE SYNC) ---
+        function saveLocationToDb(entry) {
+            if (!db) return;
+
+            // 1. Guardar siempre en local (IndexedDB)
+            const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+            tx.objectStore(STORE_LOCATIONS).put(entry);
+            tx.oncomplete = () => {
+                renderUserLogs();
+
+                // 2. Si hay conexión en la nube, sincronizar asíncronamente
+                if (isCloudActive && cloudUser) {
+                    syncLocationToCloud(entry);
+                }
+            };
+        }
+
+        // Guardado y Actualización asíncrona en Firestore (Cumpliendo REGLA 1 de rutas estrictas)
+        async function syncLocationToCloud(entry) {
+            if (!isCloudActive || !cloudUser) return;
+            try {
+                // Registrar perfil del usuario en el censo de la nube
+                const userRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'users', entry.username);
+                await setDoc(userRef, { username: entry.username, lastActive: Date.now() }, { merge: true });
+
+                // Registrar posición usando un ID único compuesto de username y timestamp para evitar duplicados
+                const locRef = doc(dbCloud, 'artifacts', appId, 'public', 'data', 'locations', `${entry.username}_${entry.timestamp}`);
+                await setDoc(locRef, entry);
+            } catch (e) {
+                console.error("Fallo al subir coordenada a la nube:", e);
+                handleFirebaseError(e);
+            }
+        }
+
+        // Sincronizar logs acumulados en local al iniciar sesión o recuperar red
+        function syncAllLocalLogsToCloud() {
+            if (!isCloudActive || !cloudUser || !currentUser || currentUser === "admin") return;
+
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
+
+            request.onsuccess = () => {
+                const logs = request.result;
+                logs.forEach(log => {
+                    syncLocationToCloud(log);
+                });
+            };
+        }
+
+        function renderUserLogs() {
+            if (!db || !currentUser) return;
+
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
+
+            request.onsuccess = () => {
+                const allLogs = request.result;
+                const visibleLogs = allLogs.filter(log => !log.userCleared);
+                visibleLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+                document.getElementById('log-count').textContent = `${visibleLogs.length} registros`;
+
+                const container = document.getElementById('logs-container');
+                const emptyState = document.getElementById('empty-state');
+                container.querySelectorAll('.log-item').forEach(el => el.remove());
+
+                if (visibleLogs.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    updateUserMapRender([]);
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+                updateUserMapRender(visibleLogs);
+
+                visibleLogs.forEach((item) => {
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                    const div = document.createElement('div');
+                    div.className = "log-item bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 flex justify-between items-center hover:border-slate-700/60 transition";
+                    div.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="p-2 bg-slate-800 rounded-lg text-slate-400">
                             <i data-lucide="navigation" class="w-4 h-4"></i>
@@ -870,60 +942,60 @@
                         </a>
                     </div>
                 `;
-                container.appendChild(div);
-            });
-            lucide.createIcons();
-        };
-    }
-
-    function softClearUserHistory() {
-        if (!db || !currentUser) return;
-
-        const tx = db.transaction([STORE_LOCATIONS], "readwrite");
-        const store = tx.objectStore(STORE_LOCATIONS);
-        const index = store.index("username");
-        const request = index.getAll(IDBKeyRange.only(currentUser));
-
-        request.onsuccess = () => {
-            const records = request.result;
-            records.forEach(item => {
-                item.userCleared = true;
-                store.put(item);
-
-                // Reflejar borrado lógico también en la nube
-                if (isCloudActive && cloudUser) {
-                    syncLocationToCloud(item);
-                }
-            });
-        };
-
-        tx.oncomplete = () => {
-            isFirstPointOfSession = true;
-            renderUserLogs();
-        };
-    }
-
-    function updateUserMapRender(list) {
-        if (!userMap) return;
-
-        userMarkers.forEach(m => userMap.removeLayer(m));
-        userMarkers = [];
-
-        if (list.length === 0) {
-            userPolyline.setLatLngs([]);
-            return;
+                    container.appendChild(div);
+                });
+                lucide.createIcons();
+            };
         }
 
-        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
-        const routeCoords = sorted.map(item => [item.lat, item.lon]);
+        function softClearUserHistory() {
+            if (!db || !currentUser) return;
 
-        sorted.forEach((item, index) => {
-            const latlng = [item.lat, item.lon];
-            const isLast = index === sorted.length - 1;
+            const tx = db.transaction([STORE_LOCATIONS], "readwrite");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(currentUser));
 
-            const markerIcon = L.divIcon({
-                className: '',
-                html: `<div style="
+            request.onsuccess = () => {
+                const records = request.result;
+                records.forEach(item => {
+                    item.userCleared = true;
+                    store.put(item);
+
+                    // Reflejar borrado lógico también en la nube
+                    if (isCloudActive && cloudUser) {
+                        syncLocationToCloud(item);
+                    }
+                });
+            };
+
+            tx.oncomplete = () => {
+                isFirstPointOfSession = true;
+                renderUserLogs();
+            };
+        }
+
+        function updateUserMapRender(list) {
+            if (!userMap) return;
+
+            userMarkers.forEach(m => userMap.removeLayer(m));
+            userMarkers = [];
+
+            if (list.length === 0) {
+                userPolyline.setLatLngs([]);
+                return;
+            }
+
+            const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+            const routeCoords = sorted.map(item => [item.lat, item.lon]);
+
+            sorted.forEach((item, index) => {
+                const latlng = [item.lat, item.lon];
+                const isLast = index === sorted.length - 1;
+
+                const markerIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="
                     width: ${isLast ? '18px' : '12px'};
                     height: ${isLast ? '18px' : '12px'};
                     background: ${isLast ? '#10b981' : '#34d399'};
@@ -932,13 +1004,13 @@
                     box-shadow: 0 0 ${isLast ? '10px #10b981' : '4px #10b98155'};
                     margin: auto;
                 "></div>`,
-                iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
-                iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
-            });
+                    iconSize: [isLast ? 18 : 12, isLast ? 18 : 12],
+                    iconAnchor: [isLast ? 9 : 6, isLast ? 9 : 6],
+                });
 
-            const marker = L.marker(latlng, { icon: markerIcon })
-                .addTo(userMap)
-                .bindPopup(`
+                const marker = L.marker(latlng, { icon: markerIcon })
+                    .addTo(userMap)
+                    .bindPopup(`
                     <div style="font-size:12px; line-height:1.6">
                         <strong style="color:#10b981">${item.timeStr}</strong><br>
                         <span style="font-family:monospace">Lat: ${item.lat.toFixed(5)}</span><br>
@@ -946,82 +1018,81 @@
                         <span style="color:#94a3b8">Precisión: ±${Math.round(item.accuracy)}m</span>
                     </div>
                 `);
-            userMarkers.push(marker);
-        });
+                userMarkers.push(marker);
+            });
 
-        userPolyline.setLatLngs(routeCoords);
+            userPolyline.setLatLngs(routeCoords);
 
-        if (routeCoords.length > 1) {
-            userMap.fitBounds(userPolyline.getBounds(), { padding: [40, 40] });
-        } else if (routeCoords.length === 1) {
-            userMap.setView(routeCoords[0], 15);
+            if (routeCoords.length > 1) {
+                userMap.fitBounds(userPolyline.getBounds(), { padding: [40, 40] });
+            } else if (routeCoords.length === 1) {
+                userMap.setView(routeCoords[0], 15);
+            }
+
+            setTimeout(() => userMap.invalidateSize(), 50);
         }
 
-        setTimeout(() => userMap.invalidateSize(), 50);
-    }
+        // =======================================================
+        // --- LÓGICA DE CONTROL DE ADMINISTRADOR ---
+        // =======================================================
+        let selectedAdminUser = null;
 
-    // =======================================================
-    // --- LÓGICA DE CONTROL DE ADMINISTRADOR ---
-    // =======================================================
-    let selectedAdminUser = null;
+        // Escuchadores de bases de datos en tiempo real (REGLA 2: Consultas simples sin índices complejos)
+        function startCloudRealtimeListeners() {
+            if (!isCloudActive || !cloudUser || currentUser !== "admin") return;
 
-    // Escuchadores de bases de datos en tiempo real (REGLA 2: Consultas simples sin índices complejos)
-    function startCloudRealtimeListeners() {
-        if (!isCloudActive || !cloudUser || currentUser !== "admin") return;
-
-        // 1. Escuchar censo de usuarios (Cumple con callbacks obligatorios para errores de Firestore)
-        const usersCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'users');
-        unsubscribeUsers = onSnapshot(usersCol, (snapshot) => {
-            const usersList = [];
-            snapshot.forEach(doc => {
-                usersList.push(doc.data());
-            });
-            renderAdminUsersList(usersList);
-        }, (err) => {
-            console.error("Fallo escuchador de usuarios en la nube:", err);
-            handleFirebaseError(err);
-        });
-
-        // 2. Escuchar todas las ubicaciones globales (Con callback obligatorio de error)
-        const locsCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'locations');
-        unsubscribeLocations = onSnapshot(locsCol, (snapshot) => {
-            cloudLocations = [];
-            snapshot.forEach(doc => {
-                cloudLocations.push(doc.data());
+            // 1. Escuchar censo de usuarios (Cumple con callbacks obligatorios para errores de Firestore)
+            const usersCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'users');
+            unsubscribeUsers = onSnapshot(usersCol, (snapshot) => {
+                const usersList = [];
+                snapshot.forEach(doc => {
+                    usersList.push(doc.data());
+                });
+                renderAdminUsersList(usersList);
+            }, (err) => {
+                console.error("Fallo escuchador de usuarios en la nube:", err);
+                handleFirebaseError(err);
             });
 
-            // Forzar repintado si el admin ya estaba visualizando a un usuario en su PC
-            if (selectedAdminUser) {
-                renderAdminSelectedUserData(selectedAdminUser);
-            }
-        }, (err) => {
-            console.error("Fallo escuchador de rutas en la nube:", err);
-            handleFirebaseError(err);
-        });
-    }
+            // 2. Escuchar todas las ubicaciones globales (Con callback obligatorio de error)
+            const locsCol = collection(dbCloud, 'artifacts', appId, 'public', 'data', 'locations');
+            unsubscribeLocations = onSnapshot(locsCol, (snapshot) => {
+                cloudLocations = [];
+                snapshot.forEach(doc => {
+                    cloudLocations.push(doc.data());
+                });
 
-    function renderAdminUsersList(usersList) {
-        const listContainer = document.getElementById('admin-user-list');
-        if (!listContainer) return;
-        listContainer.innerHTML = "";
+                // Forzar repintado si el admin ya estaba visualizando a un usuario en su PC
+                if (selectedAdminUser) {
+                    renderAdminSelectedUserData(selectedAdminUser);
+                }
+            }, (err) => {
+                console.error("Fallo escuchador de rutas en la nube:", err);
+                handleFirebaseError(err);
+            });
+        }
 
-        const cleanList = usersList.filter(u => u.username !== 'admin');
+        function renderAdminUsersList(usersList) {
+            const listContainer = document.getElementById('admin-user-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = "";
 
-        if (cleanList.length === 0) {
-            listContainer.innerHTML = `
+            const cleanList = usersList.filter(u => u.username !== 'admin');
+
+            if (cleanList.length === 0) {
+                listContainer.innerHTML = `
                 <p class="text-xs text-slate-500 text-center py-4">No hay usuarios sincronizados en la nube.</p>
             `;
-            return;
-        }
+                return;
+            }
 
-        cleanList.forEach(user => {
-            const btn = document.createElement('button');
-            btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${
-                selectedAdminUser === user.username
-                ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
-                : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`;
-            btn.innerHTML = `
+            cleanList.forEach(user => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-xl border transition flex justify-between items-center cursor-pointer ${selectedAdminUser === user.username
+                        ? 'bg-emerald-500/10 border-emerald-500 text-slate-100'
+                        : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }`;
+                btn.innerHTML = `
                 <div class="flex items-center gap-2">
                     <i data-lucide="user" class="w-4 h-4 text-emerald-400"></i>
                     <span class="font-medium text-sm">${user.username}</span>
@@ -1031,100 +1102,100 @@
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
                 </div>
             `;
-            btn.onclick = () => selectAdminUser(user.username);
-            listContainer.appendChild(btn);
-        });
-        lucide.createIcons();
-    }
-
-    // Cargar menú lateral de usuarios offline o fallback
-    function loadAdminUserDashboard() {
-        if (isCloudActive && cloudUser) {
-            // El admin ya usa escuchas asíncronas de la nube, no requiere consulta manual
-            return;
+                btn.onclick = () => selectAdminUser(user.username);
+                listContainer.appendChild(btn);
+            });
+            lucide.createIcons();
         }
 
-        if (!db) return;
-        const tx = db.transaction([STORE_USERS], "readonly");
-        const store = tx.objectStore(STORE_USERS);
-        const req = store.getAll();
+        // Cargar menú lateral de usuarios offline o fallback
+        function loadAdminUserDashboard() {
+            if (isCloudActive && cloudUser) {
+                // El admin ya usa escuchas asíncronas de la nube, no requiere consulta manual
+                return;
+            }
 
-        req.onsuccess = () => {
-            const usersList = req.result.filter(u => u.username !== 'admin');
-            renderAdminUsersList(usersList);
-        };
-    }
+            if (!db) return;
+            const tx = db.transaction([STORE_USERS], "readonly");
+            const store = tx.objectStore(STORE_USERS);
+            const req = store.getAll();
 
-    function selectAdminUser(username) {
-        selectedAdminUser = username;
-
-        // Recargar sidebar para activar resaltados visuales
-        if (isCloudActive && cloudUser) {
-            // Al estar en la nube se actualiza asíncronamente
-        } else {
-            loadAdminUserDashboard();
+            req.onsuccess = () => {
+                const usersList = req.result.filter(u => u.username !== 'admin');
+                renderAdminUsersList(usersList);
+            };
         }
 
-        document.getElementById('admin-no-selection').classList.add('hidden');
-        const detailsContainer = document.getElementById('admin-user-details');
-        detailsContainer.classList.remove('hidden');
+        function selectAdminUser(username) {
+            selectedAdminUser = username;
 
-        document.getElementById('admin-selected-username').textContent = username;
+            // Recargar sidebar para activar resaltados visuales
+            if (isCloudActive && cloudUser) {
+                // Al estar en la nube se actualiza asíncronamente
+            } else {
+                loadAdminUserDashboard();
+            }
 
-        renderAdminSelectedUserData(username);
-    }
+            document.getElementById('admin-no-selection').classList.add('hidden');
+            const detailsContainer = document.getElementById('admin-user-details');
+            detailsContainer.classList.remove('hidden');
 
-    function renderAdminSelectedUserData(username) {
-        // RUTA 1: Si la nube está activa, filtramos en memoria los pings en tiempo real (REGLA 2)
-        if (isCloudActive && cloudUser) {
-            const allLogs = cloudLocations.filter(loc => loc.username === username);
-            processAndRenderSelectedUserLogs(allLogs);
-            return;
+            document.getElementById('admin-selected-username').textContent = username;
+
+            renderAdminSelectedUserData(username);
         }
 
-        // RUTA 2: Fallback local offline (IndexedDB)
-        if (!db) return;
-        const tx = db.transaction([STORE_LOCATIONS], "readonly");
-        const store = tx.objectStore(STORE_LOCATIONS);
-        const index = store.index("username");
-        const request = index.getAll(IDBKeyRange.only(username));
+        function renderAdminSelectedUserData(username) {
+            // RUTA 1: Si la nube está activa, filtramos en memoria los pings en tiempo real (REGLA 2)
+            if (isCloudActive && cloudUser) {
+                const allLogs = cloudLocations.filter(loc => loc.username === username);
+                processAndRenderSelectedUserLogs(allLogs);
+                return;
+            }
 
-        request.onsuccess = () => {
-            const allLogs = request.result;
-            processAndRenderSelectedUserLogs(allLogs);
-        };
-    }
+            // RUTA 2: Fallback local offline (IndexedDB)
+            if (!db) return;
+            const tx = db.transaction([STORE_LOCATIONS], "readonly");
+            const store = tx.objectStore(STORE_LOCATIONS);
+            const index = store.index("username");
+            const request = index.getAll(IDBKeyRange.only(username));
 
-    function processAndRenderSelectedUserLogs(allLogs) {
-        allLogs.sort((a, b) => b.timestamp - a.timestamp);
+            request.onsuccess = () => {
+                const allLogs = request.result;
+                processAndRenderSelectedUserLogs(allLogs);
+            };
+        }
 
-        document.getElementById('admin-selected-count').textContent = `${allLogs.length} Registros`;
+        function processAndRenderSelectedUserLogs(allLogs) {
+            allLogs.sort((a, b) => b.timestamp - a.timestamp);
 
-        const listContainer = document.getElementById('admin-selected-logs');
-        listContainer.innerHTML = "";
+            document.getElementById('admin-selected-count').textContent = `${allLogs.length} Registros`;
 
-        if (allLogs.length === 0) {
-            listContainer.innerHTML = `
+            const listContainer = document.getElementById('admin-selected-logs');
+            listContainer.innerHTML = "";
+
+            if (allLogs.length === 0) {
+                listContainer.innerHTML = `
                 <div class="text-center py-8 bg-slate-800/20 border border-slate-800/80 border-dashed rounded-xl">
                     <p class="text-xs text-slate-500">Este usuario no tiene coordenadas registradas todavía.</p>
                 </div>
             `;
-            updateAdminMapRender([]);
-            return;
-        }
+                updateAdminMapRender([]);
+                return;
+            }
 
-        updateAdminMapRender(allLogs);
+            updateAdminMapRender(allLogs);
 
-        allLogs.forEach(item => {
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-            const div = document.createElement('div');
+            allLogs.forEach(item => {
+                const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                const div = document.createElement('div');
 
-            const badgeHtml = item.userCleared
-                ? `<span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">BORRADO POR USUARIO</span>`
-                : `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVO</span>`;
+                const badgeHtml = item.userCleared
+                    ? `<span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">BORRADO POR USUARIO</span>`
+                    : `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVO</span>`;
 
-            div.className = "p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex justify-between items-center";
-            div.innerHTML = `
+                div.className = "p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex justify-between items-center";
+                div.innerHTML = `
                 <div class="flex items-center gap-2">
                     <div class="p-1.5 bg-slate-800 rounded text-slate-400">
                         <i data-lucide="navigation-2" class="w-3.5 h-3.5"></i>
@@ -1143,36 +1214,36 @@
                     <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="text-[10px] text-sky-400 hover:underline mt-1 block">Ver en Maps →</a>
                 </div>
             `;
-            listContainer.appendChild(div);
-        });
-        lucide.createIcons();
-    }
-
-    function updateAdminMapRender(list) {
-        if (!adminMap) return;
-
-        adminMarkers.forEach(m => adminMap.removeLayer(m));
-        adminMarkers = [];
-
-        if (list.length === 0) {
-            adminPolyline.setLatLngs([]);
-            return;
+                listContainer.appendChild(div);
+            });
+            lucide.createIcons();
         }
 
-        const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
-        const routeCoords = sorted.map(item => [item.lat, item.lon]);
+        function updateAdminMapRender(list) {
+            if (!adminMap) return;
 
-        sorted.forEach((item, index) => {
-            const latlng = [item.lat, item.lon];
-            const isLast = index === sorted.length - 1;
+            adminMarkers.forEach(m => adminMap.removeLayer(m));
+            adminMarkers = [];
 
-            let pinColor = '#38bdf8';
-            if (item.userCleared) pinColor = '#f87171';
-            else if (isLast) pinColor = '#34d399';
+            if (list.length === 0) {
+                adminPolyline.setLatLngs([]);
+                return;
+            }
 
-            const markerIcon = L.divIcon({
-                className: '',
-                html: `<div style="
+            const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
+            const routeCoords = sorted.map(item => [item.lat, item.lon]);
+
+            sorted.forEach((item, index) => {
+                const latlng = [item.lat, item.lon];
+                const isLast = index === sorted.length - 1;
+
+                let pinColor = '#38bdf8';
+                if (item.userCleared) pinColor = '#f87171';
+                else if (isLast) pinColor = '#34d399';
+
+                const markerIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="
                     width: ${isLast ? '16px' : '10px'};
                     height: ${isLast ? '16px' : '10px'};
                     background: ${pinColor};
@@ -1181,13 +1252,13 @@
                     box-shadow: 0 0 8px ${pinColor};
                     margin: auto;
                 "></div>`,
-                iconSize: [isLast ? 16 : 10, isLast ? 16 : 10],
-                iconAnchor: [isLast ? 8 : 5, isLast ? 8 : 5],
-            });
+                    iconSize: [isLast ? 16 : 10, isLast ? 16 : 10],
+                    iconAnchor: [isLast ? 8 : 5, isLast ? 8 : 5],
+                });
 
-            const marker = L.marker(latlng, { icon: markerIcon })
-                .addTo(adminMap)
-                .bindPopup(`
+                const marker = L.marker(latlng, { icon: markerIcon })
+                    .addTo(adminMap)
+                    .bindPopup(`
                     <div style="font-size:11px; line-height:1.5">
                         <strong style="color:${pinColor}">${item.timeStr} (${item.dateStr})</strong><br>
                         Lat: ${item.lat.toFixed(5)}<br>
@@ -1195,170 +1266,171 @@
                         Estado: <span style="font-weight:bold">${item.userCleared ? 'Borrado por usuario' : 'Activo'}</span>
                     </div>
                 `);
-            adminMarkers.push(marker);
-        });
+                adminMarkers.push(marker);
+            });
 
-        adminPolyline.setLatLngs(routeCoords);
+            adminPolyline.setLatLngs(routeCoords);
 
-        if (routeCoords.length > 1) {
-            adminMap.fitBounds(adminPolyline.getBounds(), { padding: [40, 40] });
-        } else if (routeCoords.length === 1) {
-            adminMap.setView(routeCoords[0], 15);
+            if (routeCoords.length > 1) {
+                adminMap.fitBounds(adminPolyline.getBounds(), { padding: [40, 40] });
+            } else if (routeCoords.length === 1) {
+                adminMap.setView(routeCoords[0], 15);
+            }
+
+            setTimeout(() => adminMap.invalidateSize(), 50);
         }
 
-        setTimeout(() => adminMap.invalidateSize(), 50);
-    }
+        // --- EXPORTAR DATOS DEL USUARIO ---
+        const btnExport = document.getElementById('btn-export');
+        if (btnExport) {
+            btnExport.addEventListener('click', () => {
+                if (!db || !currentUser) return;
 
-    // --- EXPORTAR DATOS DEL USUARIO ---
-    const btnExport = document.getElementById('btn-export');
-    if (btnExport) {
-        btnExport.addEventListener('click', () => {
-            if (!db || !currentUser) return;
+                const tx = db.transaction([STORE_LOCATIONS], "readonly");
+                const store = tx.objectStore(STORE_LOCATIONS);
+                const index = store.index("username");
+                const request = index.getAll(IDBKeyRange.only(currentUser));
 
-            const tx = db.transaction([STORE_LOCATIONS], "readonly");
-            const store = tx.objectStore(STORE_LOCATIONS);
-            const index = store.index("username");
-            const request = index.getAll(IDBKeyRange.only(currentUser));
-
-            request.onsuccess = () => {
-                const logs = request.result;
-                if (logs.length === 0) {
-                    alert("No tienes datos de ubicación guardados para exportar.");
-                    return;
-                }
-
-                const exportData = {
-                    version: "GeoTracker_v3.1",
-                    username: currentUser,
-                    exportedAt: Date.now(),
-                    locations: logs
-                };
-
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-                const downloadAnchor = document.createElement('a');
-                downloadAnchor.setAttribute("href", dataStr);
-                const dateStr = new Date().toISOString().slice(0, 10);
-                downloadAnchor.setAttribute("download", `geotracker_${currentUser}_${dateStr}.json`);
-                document.body.appendChild(downloadAnchor);
-                downloadAnchor.click();
-                downloadAnchor.remove();
-            };
-        };
-    }
-
-    // --- IMPORTAR DATOS EN ADMINISTRACIÓN ---
-    const importFileInput = document.getElementById('admin-import-file');
-    if (importFileInput) {
-        importFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const importedData = JSON.parse(event.target.result);
-
-                    if (importedData.version !== "GeoTracker_v3.1" || !importedData.username || !Array.isArray(importedData.locations)) {
-                        alert("El archivo JSON seleccionado no tiene un formato compatible con GeoTracker Pro v3.1.");
+                request.onsuccess = () => {
+                    const logs = request.result;
+                    if (logs.length === 0) {
+                        alert("No tienes datos de ubicación guardados para exportar.");
                         return;
                     }
 
-                    const importedUsername = importedData.username;
-
-                    // 1. Guardar/Actualizar el usuario en el store de usuarios
-                    const txUser = db.transaction([STORE_USERS], "readwrite");
-                    const storeUser = txUser.objectStore(STORE_USERS);
-                    storeUser.put({ username: importedUsername, registeredAt: importedData.exportedAt || Date.now() });
-
-                    txUser.oncomplete = () => {
-                        // 2. Guardar las coordenadas importadas en el store de ubicaciones
-                        const txLoc = db.transaction([STORE_LOCATIONS], "readwrite");
-                        const storeLoc = txLoc.objectStore(STORE_LOCATIONS);
-
-                        importedData.locations.forEach(loc => {
-                            loc.username = importedUsername;
-                            storeLoc.put(loc);
-
-                            // Sincronizar también con la nube para que se guarde de forma permanente
-                            if (isCloudActive && cloudUser) {
-                                syncLocationToCloud(loc);
-                            }
-                        });
-
-                        txLoc.oncomplete = () => {
-                            alert(`¡Éxito! Se han importado correctamente ${importedData.locations.length} ubicaciones del usuario "${importedUsername}".`);
-                            importFileInput.value = "";
-                            loadAdminUserDashboard();
-                            if (selectedAdminUser === importedUsername) {
-                                selectAdminUser(importedUsername);
-                            }
-                        };
+                    const exportData = {
+                        version: "GeoTracker_v3.1",
+                        username: currentUser,
+                        exportedAt: Date.now(),
+                        locations: logs
                     };
 
-                } catch (err) {
-                    console.error(err);
-                    alert("Error al procesar el archivo. Asegúrate de que es un archivo .json válido exportado por esta aplicación.");
-                }
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    downloadAnchor.setAttribute("download", `geotracker_${currentUser}_${dateStr}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                };
             };
-            reader.readAsText(file);
-        });
-    }
+        }
 
-    // --- MANEJO DE CONFIGURACIÓN DEL MODAL DE LA NUBE (GLOBAL WINDOW SCOPE) ---
-    window.openCloudModal = () => {
-        const modal = document.getElementById('modal-cloud-config');
-        modal.classList.remove('hidden');
-        const input = document.getElementById('cloud-json-input');
-        const saved = localStorage.getItem("geotracker_cloud_config");
-        if (saved) {
-            try {
-                input.value = JSON.stringify(JSON.parse(saved), null, 2);
-            } catch(e) {
-                input.value = saved;
+        // --- IMPORTAR DATOS EN ADMINISTRACIÓN ---
+        const importFileInput = document.getElementById('admin-import-file');
+        if (importFileInput) {
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+
+                        if (importedData.version !== "GeoTracker_v3.1" || !importedData.username || !Array.isArray(importedData.locations)) {
+                            alert("El archivo JSON seleccionado no tiene un formato compatible con GeoTracker Pro v3.1.");
+                            return;
+                        }
+
+                        const importedUsername = importedData.username;
+
+                        // 1. Guardar/Actualizar el usuario en el store de usuarios
+                        const txUser = db.transaction([STORE_USERS], "readwrite");
+                        const storeUser = txUser.objectStore(STORE_USERS);
+                        storeUser.put({ username: importedUsername, registeredAt: importedData.exportedAt || Date.now() });
+
+                        txUser.oncomplete = () => {
+                            // 2. Guardar las coordenadas importadas en el store de ubicaciones
+                            const txLoc = db.transaction([STORE_LOCATIONS], "readwrite");
+                            const storeLoc = txLoc.objectStore(STORE_LOCATIONS);
+
+                            importedData.locations.forEach(loc => {
+                                loc.username = importedUsername;
+                                storeLoc.put(loc);
+
+                                // Sincronizar también con la nube para que se guarde de forma permanente
+                                if (isCloudActive && cloudUser) {
+                                    syncLocationToCloud(loc);
+                                }
+                            });
+
+                            txLoc.oncomplete = () => {
+                                alert(`¡Éxito! Se han importado correctamente ${importedData.locations.length} ubicaciones del usuario "${importedUsername}".`);
+                                importFileInput.value = "";
+                                loadAdminUserDashboard();
+                                if (selectedAdminUser === importedUsername) {
+                                    selectAdminUser(importedUsername);
+                                }
+                            };
+                        };
+
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error al procesar el archivo. Asegúrate de que es un archivo .json válido exportado por esta aplicación.");
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        // --- MANEJO DE CONFIGURACIÓN DEL MODAL DE LA NUBE (GLOBAL WINDOW SCOPE) ---
+        window.openCloudModal = () => {
+            const modal = document.getElementById('modal-cloud-config');
+            modal.classList.remove('hidden');
+            const input = document.getElementById('cloud-json-input');
+            const saved = localStorage.getItem("geotracker_cloud_config");
+            if (saved) {
+                try {
+                    input.value = JSON.stringify(JSON.parse(saved), null, 2);
+                } catch (e) {
+                    input.value = saved;
+                }
+            } else {
+                input.value = JSON.stringify(defaultFirebaseConfig, null, 2); // Ofrecer tu config por defecto para facilitar restaurarla
             }
-        } else {
-            input.value = JSON.stringify(defaultFirebaseConfig, null, 2); // Ofrecer tu config por defecto para facilitar restaurarla
-        }
-    };
+        };
 
-    window.closeCloudModal = () => {
-        document.getElementById('modal-cloud-config').classList.add('hidden');
-    };
+        window.closeCloudModal = () => {
+            document.getElementById('modal-cloud-config').classList.add('hidden');
+        };
 
-    window.saveCloudConfig = () => {
-        const value = document.getElementById('cloud-json-input').value.trim();
-        if (!value) {
-            alert("Por favor, introduce una configuración válida.");
-            return;
-        }
-        try {
-            const parsed = JSON.parse(value);
-            localStorage.setItem("geotracker_cloud_config", JSON.stringify(parsed));
-            alert("¡Base de datos vinculada con éxito! La aplicación se recargará para aplicar los cambios.");
+        window.saveCloudConfig = () => {
+            const value = document.getElementById('cloud-json-input').value.trim();
+            if (!value) {
+                alert("Por favor, introduce una configuración válida.");
+                return;
+            }
+            try {
+                const parsed = JSON.parse(value);
+                localStorage.setItem("geotracker_cloud_config", JSON.stringify(parsed));
+                alert("¡Base de datos vinculada con éxito! La aplicación se recargará para aplicar los cambios.");
+                location.reload();
+            } catch (e) {
+                alert("Error: El formato de configuración debe ser un JSON válido.");
+            }
+        };
+
+        window.clearCloudConfig = () => {
+            localStorage.removeItem("geotracker_cloud_config");
+            alert("Configuración de nube eliminada. Volviendo al modo local...");
             location.reload();
-        } catch(e) {
-            alert("Error: El formato de configuración debe ser un JSON válido.");
+        };
+
+        // Exportar variables de ciclo al scope global de Javascript
+        window.selectAdminUser = selectAdminUser;
+        window.startTracking = startTracking;
+        window.stopTracking = stopTracking;
+
+        // Helper de estado de la conexión DB
+        function updateDbStatus(text, badgeClass) {
+            const dbStatusEl = document.getElementById('db-status');
+            if (dbStatusEl) {
+                dbStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
+            }
         }
-    };
-
-    window.clearCloudConfig = () => {
-        localStorage.removeItem("geotracker_cloud_config");
-        alert("Configuración de nube eliminada. Volviendo al modo local...");
-        location.reload();
-    };
-
-    // Exportar variables de ciclo al scope global de Javascript
-    window.selectAdminUser = selectAdminUser;
-    window.startTracking = startTracking;
-    window.stopTracking = stopTracking;
-
-    // Helper de estado de la conexión DB
-    function updateDbStatus(text, badgeClass) {
-        const dbStatusEl = document.getElementById('db-status');
-        if (dbStatusEl) {
-            dbStatusEl.innerHTML = `<span class="w-2 h-2 rounded-full ${badgeClass}"></span> ${text}`;
-        }
-    }
-</script>
+    </script>
 </body>
+
 </html>
