@@ -154,9 +154,9 @@
                             class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition">
                     </div>
 
-                    <div id="login-error-msg" class="text-xs text-red-400 hidden flex items-center gap-1">
+                    <div id="login-error-msg" class="text-xs text-red-600 hidden flex items-center gap-1">
                         <i data-lucide="alert-circle" class="w-4 h-4"></i>
-                        <span>Acceso denegado. Inténtalo de nuevo.</span>
+                        <span>Contraseña incorrecta. Inténtalo de nuevo.</span>
                     </div>
 
                     <button type="submit" id="btn-submit-auth"
@@ -171,7 +171,7 @@
                         <div class="flex-grow border-t border-gray-300"></div>
                     </div>
 
-                    <!-- Botón de acceso directo para Admin sin contraseña -->
+                    <!-- Botón de acceso directo para Admin con contraseña -->
                     <button type="button" id="btn-admin-shortcut"
                         class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-md">
                         <i data-lucide="shield" class="w-4.5 h-4.5 text-emerald-600"></i>
@@ -881,14 +881,20 @@
                 }
             });
 
-            // Botón de Acceso Rápido Administrador
+            // Botón de Acceso Rápido Administrador - Requiere contraseña
             adminBtn.onclick = () => {
-                currentUser = "admin";
-                localStorage.setItem("geotracker_username", "admin");
-                errorMsg.classList.add('hidden');
-                // Si la nube está activa, levantamos escuchas en tiempo real para el admin
-                startCloudRealtimeListeners();
-                navigateTo('admin');
+                const password = prompt('🔐 Introduce la contraseña de administrador:');
+
+                if (password === 'administrador') {
+                    currentUser = "admin";
+                    localStorage.setItem("geotracker_username", "admin");
+                    errorMsg.classList.add('hidden');
+                    // Si la nube está activa, levantamos escuchas en tiempo real para el admin
+                    startCloudRealtimeListeners();
+                    navigateTo('admin');
+                } else if (password !== null) {
+                    alert('❌ Contraseña incorrecta');
+                }
             };
 
             formLogin.onsubmit = (e) => {
@@ -897,7 +903,7 @@
                 const password = document.getElementById('login-password').value;
 
                 if (username.toLowerCase() === 'admin') {
-                    if (password === 'admin') {
+                    if (password === 'administrador') {
                         currentUser = "admin";
                         localStorage.setItem("geotracker_username", "admin");
                         errorMsg.classList.add('hidden');
